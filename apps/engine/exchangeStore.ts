@@ -37,7 +37,7 @@ export interface createOrderInput  {
 export interface onrampInput {
     userId : string,
     symbol: string,
-    amount: string,
+    amount: number
 }
 
 export interface RestingOrder {
