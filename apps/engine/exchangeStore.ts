@@ -33,7 +33,6 @@ export interface getOrderInput {
   symbol: string;
 }
 
-
 export interface createOrderInput  {
     userId : string,
     type: orderType,
@@ -53,6 +52,10 @@ export interface onrampInput {
     userId : string,
     symbol: string,
     amount: number
+}
+export interface getPositionInput {
+  userId: string
+  symbol: string
 }
 
 export interface RestingOrder {
@@ -82,6 +85,10 @@ export interface Fill {
     price: number,
     symbol: string,
     createdAt: number
+}
+
+export interface getDepthInput{
+    symbol:string
 }
 
 export interface OrderRecord {

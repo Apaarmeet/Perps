@@ -1,8 +1,11 @@
 import type { EngineRequest } from "./exchangeStore";
 import { handleCancelOrder } from "./handler/cancelOrder";
 import { handleCreateOrder } from "./handler/createOrder";
+import { handleGetDepth } from "./handler/getDepth";
+import { handleGetFills } from "./handler/getFills";
 import { handleGetOpenOrder } from "./handler/getOpenOrders";
 import { handleGetOrder } from "./handler/getOrder";
+import { handleGetPosition } from "./handler/getPosition";
 import { handleGetUserBalance } from "./handler/getUserBalance";
 import { handleGetUserPosition } from "./handler/getuserPosition";
 import { handleOnRamp } from "./handler/onramp";
