@@ -87,12 +87,12 @@ export interface OrderRecord {
 
 export interface Position {
     userId: string,
-    market: string,
     side: Side,
     qty: number,
     averagePrice: number,
     liquidationPrice: number,
     leverage: number,
+    margin : number,
     pnl: number,
 }
 
@@ -103,7 +103,7 @@ export interface Balance {
 
 export const BALANCES = new Map<string, Record<string, Balance>>()
 export const ORDERBOOK = new Map<string, OrderBook>()
-export const POSITIONS = new Map<string, Record<string, Position>>() 
+export const POSITIONS = new Map<string, Map<string, Position>>() 
 export const ORDERS = new Map<string, OrderRecord>()
 export const FILLS: Fill[] = []
 

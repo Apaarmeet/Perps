@@ -1,4 +1,5 @@
-import { BALANCES, FILLS, ORDERBOOK, ORDERS, type Balance, type createOrderInput, type Fill, type OrderBook, type RestingOrder } from "../exchangeStore";
+import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, type Balance, type createOrderInput, type Fill, type OrderBook, type RestingOrder } from "../exchangeStore";
+import { applyFillToPosition } from "../helper/updatePosition";
 
 export async function handleCreateOrder(payload: createOrderInput){
     const {userId, type, side, symbol, price, qty, leverage, sllipage} = payload
@@ -21,7 +22,7 @@ export async function handleCreateOrder(payload: createOrderInput){
 
     const orderId = crypto.randomUUID()
     const createdAt = Date.now()
-
+   
     if(side === "LONG"){
         
         const AskPrices = orderBook.asks.keys()
@@ -79,6 +80,8 @@ export async function handleCreateOrder(payload: createOrderInput){
 
                     FILLS.push(fill)
                     fills.push(fill)
+                    applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "SHORT", restingOrder.leverage)
+                    applyFillToPosition(userId, symbol, qtyToBeFilled, bestPrice, "LONG", leverage)
                     let makerOrder = ORDERS.get(restingOrder.orderId)
                     
                     if(makerOrder){
@@ -88,9 +91,10 @@ export async function handleCreateOrder(payload: createOrderInput){
 
                     if(restingOrder.filledQty === restingOrder.qty){
                         const updatedOrderBook = orders?.filter((f)=> f.orderId != restingOrder.orderId)
-                        if(orders.length === 0){
+                        if(updatedOrderBook.length === 0){
                             orderBook.asks.delete(bestPrice)
-                            ORDERBOOK.get(symbol)?.asks.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
+                        } else {
+                            orderBook.asks.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
                         }
                     }
                    
@@ -218,6 +222,8 @@ export async function handleCreateOrder(payload: createOrderInput){
 
                     FILLS.push(fill);
                     fills.push(fill);
+                     applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "LONG", restingOrder.leverage)
+                    applyFillToPosition(userId, symbol, qtyToBeFilled, bestPrice, "SHORT", leverage)
 
                     let makerOrder = ORDERS.get(restingOrder.orderId)
 
@@ -227,9 +233,10 @@ export async function handleCreateOrder(payload: createOrderInput){
                     } 
                     if(restingOrder.filledQty === restingOrder.qty){
                         const updatedOrderBook = orders?.filter((f)=> f.orderId != restingOrder.orderId)
-                        if(orders.length === 0) {
+                        if(updatedOrderBook.length === 0){
                             orderBook.bids.delete(bestPrice)
-                            ORDERBOOK.get(symbol)?.bids.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
+                        } else {
+                            orderBook.bids.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
                         }
                     }
                     
