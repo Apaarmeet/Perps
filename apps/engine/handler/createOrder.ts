@@ -1,7 +1,7 @@
 import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, type Balance, type createOrderInput, type Fill, type OrderBook, type RestingOrder } from "../exchangeStore";
 import { applyFillToPosition } from "../helper/updatePosition";
 
-export async function handleCreateOrder(payload: createOrderInput){
+export function handleCreateOrder(payload: createOrderInput){
     const {userId, type, side, symbol, price, qty, leverage, sllipage} = payload
     
     const userBalance = BALANCES.get(userId)
