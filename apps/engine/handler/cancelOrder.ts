@@ -1,6 +1,6 @@
 import { BALANCES, ORDERBOOK, ORDERS, type cancelOrderInput } from "../exchangeStore";
 
-function handleCancelOrder(payload : cancelOrderInput){
+export function handleCancelOrder(payload : cancelOrderInput){
     const {userId, orerId} = payload 
 
     const order = ORDERS.get(orerId)

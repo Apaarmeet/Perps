@@ -22,6 +22,16 @@ export interface EngineRequest {
   type: EngineCommandType,
   payload: Record<string, unknown>
 }
+export interface getUserBalanceInput {
+  userId: string
+}
+export interface getUserPositionInput {
+  userId: string
+}
+export interface getOrderInput {
+  userId: string;
+  symbol: string;
+}
 
 
 export interface createOrderInput  {
