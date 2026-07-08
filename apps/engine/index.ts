@@ -33,7 +33,7 @@ export function handleEngineRequest(message: EngineRequest){
         case "get-fills":
             return handleGetFills(message.payload)
         case "price-update":
-            return handlePriceUpdate(message.payload)
+            return handleIndexPriceChange(message.payload)
         default:
             throw new Error(`Unknown command type`)
     }

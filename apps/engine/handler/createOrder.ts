@@ -166,7 +166,7 @@ export function handleCreateOrder(payload: createOrderInput){
             
         }
 
-        if(side === "SHORT"){
+    if(side === "SHORT"){
 
             const BidsPrices = orderBook.bids.keys()
             const bestBid = Math.max(...BidsPrices)
