@@ -29,7 +29,7 @@ export async function middleware(req: Request, res: Response, next: NextFunction
     const userId = verify.userId
 
 
-    req.userId = {userId}
+    req.userId = userId
 
     next()
 }
