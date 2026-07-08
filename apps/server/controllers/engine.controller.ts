@@ -25,6 +25,20 @@ export async function createorder(req: Request, res: Response) {
   }
 }
 
+export async function getUserBalance(req: Request, res:Response){
+    const userId = req.userId
+
+    try{
+        const response = await loopback("getUserBalance", {userId})
+        res.status(200).json(response)
+    } catch (err){
+        console.error("userbalance error", {
+            userId,
+            error: err
+        })
+    }
+}
+
 export async function cancelOrder(req: Request, res:Response){
     const userId = req.userId;
     const body = req.body;
@@ -112,5 +126,28 @@ export async function fillsHandler(req: Request, res: Response) {
     res.status(200).json(fills);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
+  }
+}
+
+export async function getPositions(req: Request, res: Response) {
+  const userId = req.userId;
+  const marketId = req.params.marketId as string;
+
+  try {
+    const response = await loopback("get-positions", { userId, marketId });
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+  }
+}
+
+export async function getDepth(req: Request, res: Response) {
+  const marketId = req.params.marketId as string;
+
+  try {
+    const response = await loopback("get-depth", { marketId });
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
   }
 }

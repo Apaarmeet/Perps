@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { cancelOrder, createorder, onRamp, openOrdersHandler, ordersHandler, fillsHandler } from "../controllers/engine.controller";
+import { cancelOrder, createorder, onRamp, openOrdersHandler, ordersHandler, fillsHandler, getUserBalance, getPositions, getDepth } from "../controllers/engine.controller";
 
 export const engineRouter = Router()
 
 engineRouter.post("/onRamp",onRamp)
 engineRouter.post("/order", createorder)
 engineRouter.delete("/order", cancelOrder)
-engineRouter.get("/equity/available", (req, res) => {})
-engineRouter.get("/positions/open/:marketId", (req, res) => {});
-engineRouter.get("/positions/closed/:marketId", (req, res) => {});
+engineRouter.get("/equity/available", getUserBalance)
+engineRouter.get("/positions/:marketId", getPositions);
+engineRouter.get("/depth/:marketId", getDepth)
 engineRouter.get("/orders/open/:marketId", openOrdersHandler)
 engineRouter.get("/orders/:marketId", ordersHandler)
 engineRouter.get("/fills", fillsHandler);
