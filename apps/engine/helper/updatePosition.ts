@@ -16,7 +16,7 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
             side,
             qty: fillQty,
             averagePrice: fillPrice,
-            liquidationPrice: 0, // TODO: compute properly later
+            liquidationPrice: side === "LONG" ? fillPrice * (1 - 1/leverage) : fillPrice * (1 + 1/leverage) ,
             leverage,
             margin: (fillPrice * fillQty) / leverage,
             pnl: 0,
@@ -28,6 +28,7 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
     if (existing.side === side) {
         const newQty = existing.qty + fillQty
         existing.averagePrice = ((existing.averagePrice * existing.qty) + (fillPrice * fillQty)) / newQty
+        existing.liquidationPrice = side === "LONG"?existing.averagePrice * (1-1/leverage) : existing.averagePrice * (1+1/leverage)
         existing.margin += (fillPrice * fillQty) / leverage
         existing.qty = newQty
         return
@@ -76,7 +77,7 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
         side, // the new side, i.e. the taker's side
         qty: remainderQty,
         averagePrice: fillPrice,
-        liquidationPrice: 0, // TODO
+        liquidationPrice: side === "LONG" ? fillPrice * (1 - 1/leverage) : fillPrice * (1 + 1/leverage),
         leverage,
         margin: (remainderQty * fillPrice) / leverage,
         pnl: realizedPnl, // or track realized separately from this position's own unrealized pnl — your call
