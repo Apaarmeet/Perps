@@ -1,7 +1,7 @@
-import { ORDERS } from "../exchangeStore"
+import { ORDERS, type getOpenOrdersInput } from "../exchangeStore"
 
-export function handleGetOpenOrder(payload: Record<string, unknown>) {
-  const { userId, symbol, status } = payload as { userId: string; symbol: string; status?: string }
+export function handleGetOpenOrder(payload: getOpenOrdersInput) {
+  const { userId, symbol, status } = payload
 
   const orders = [...ORDERS.values()].filter((order) => {
     if (order.userId !== userId) return false

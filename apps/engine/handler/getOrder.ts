@@ -1,7 +1,7 @@
 import { ORDERS, type getOrderInput } from "../exchangeStore";
 
-export function handleGetOrder(payload: Record<string, unknown>) {
-    const { userId, orderId, symbol } = payload as { userId: string; orderId?: string; symbol?: string }
+export function handleGetOrder(payload: getOrderInput) {
+    const { userId, orderId, symbol } = payload
 
     if (orderId) {
         const order = ORDERS.get(orderId)

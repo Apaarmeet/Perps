@@ -3,25 +3,20 @@ export type orderType = "market" | "limit"
 export type Side = "LONG" | "SHORT"
 export type OrderStatus = "FILLED" | "PARTIALLY_FILLED" | "OPEN" | "CANCELLED"
 
-export type EngineCommandType =
-  | "create-order"
-  | "get-depth"
-  | "get-user-balance"
-  | "get-order"
-  | "cancel-order"
-  | "get-position"
-  | "get-user-position"
-  | "onRamp"
-  | "get-open-orders"
-  | "get-orders"
-  | "get-fills"
-  | "price-update"
 
-export interface EngineRequest {
-  correlationId: string,
-  type: EngineCommandType,
-  payload: Record<string, unknown>
-}
+export type EngineRequest =
+  | { correlationId: string; type: "create-order"; payload: createOrderInput }
+  | { correlationId: string; type: "get-depth"; payload: getDepthInput }
+  | { correlationId: string; type: "get-user-balance"; payload: getUserBalanceInput }
+  | { correlationId: string; type: "cancel-order"; payload: cancelOrderInput }
+  | { correlationId: string; type: "get-position"; payload: getPositionInput }
+  | { correlationId: string; type: "get-user-position"; payload: getUserPositionInput }
+  | { correlationId: string; type: "onRamp"; payload: onrampInput }
+  | { correlationId: string; type: "get-open-orders"; payload: getOpenOrdersInput }
+  | { correlationId: string; type: "get-orders"; payload: getOrderInput }
+  | { correlationId: string; type: "get-fills"; payload: getFillsInput }
+  | { correlationId: string; type: "price-update"; payload: priceUpdateInput }
+
 export interface getUserBalanceInput {
   userId: string
 }
@@ -30,7 +25,24 @@ export interface getUserPositionInput {
 }
 export interface getOrderInput {
   userId: string;
+  orderId?: string;
+  symbol?: string;
+}
+
+export interface getOpenOrdersInput {
+  userId: string;
   symbol: string;
+  status?: string;
+}
+
+export interface getFillsInput {
+  userId: string;
+  symbol?: string;
+}
+
+export interface priceUpdateInput {
+  symbol: string;
+  price: number;
 }
 
 export interface createOrderInput  {

@@ -29,7 +29,7 @@ export async function getUserBalance(req: Request, res:Response){
     const userId = req.userId
 
     try{
-        const response = await loopback("getUserBalance", {userId})
+        const response = await loopback("get-user-balance", {userId})
         res.status(200).json(response)
     } catch (err){
         console.error("userbalance error", {

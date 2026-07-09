@@ -1,7 +1,7 @@
 import { BALANCES, type getUserBalanceInput } from "../exchangeStore";
 
-export function handleGetUserBalance(payload: Record<string, unknown>){
-    const {userId} = payload as unknown as getUserBalanceInput
+export function handleGetUserBalance(payload: getUserBalanceInput){
+    const {userId} = payload
 
     const balance = BALANCES.get(userId)
 

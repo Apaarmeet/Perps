@@ -1,7 +1,7 @@
-import { ORDERS, FILLS } from "../exchangeStore";
+import { ORDERS, FILLS, type getFillsInput } from "../exchangeStore";
 
-export function handleGetFills(payload: Record<string, unknown>) {
-  const { userId, symbol } = payload as { userId: string; symbol?: string };
+export function handleGetFills(payload: getFillsInput) {
+  const { userId, symbol } = payload;
 
   const userFills = FILLS.filter((fill) => {
     if (symbol && fill.symbol !== symbol) return false;
