@@ -1,7 +1,7 @@
 import { BALANCES, type onrampInput } from "../exchangeStore";
 
 export async function handleOnRamp(payload: onrampInput){
-    const {userId, symbol, amount} = payload
+    const {userId, amount} = payload
 
     if(amount <= 0) {
         throw new Error("Amount must be positive")
@@ -15,13 +15,13 @@ export async function handleOnRamp(payload: onrampInput){
         BALANCES.set(userId,userBalance)
     }
 
-    if(!userBalance[symbol]){
-        userBalance[symbol] = {
+    if(!userBalance["USD"]){
+        userBalance["USD"] = {
             available : 0,
             locked : 0
         }
     }
 
-    userBalance[symbol].available += amount
+    userBalance["USD"].available += amount
 
 } 

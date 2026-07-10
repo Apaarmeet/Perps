@@ -46,8 +46,8 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
         existing.margin -= marginToRelease
         existing.qty -= fillQty
 
-        BALANCES.get(userId)![symbol]!.locked -= marginToRelease
-        BALANCES.get(userId)![symbol]!.available += marginToRelease + realizedPnl
+        BALANCES.get(userId)!["USD"]!.locked -= marginToRelease
+        BALANCES.get(userId)!["USD"]!.available += marginToRelease + realizedPnl
         return
     }
 
@@ -59,8 +59,8 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
             : (existing.averagePrice - fillPrice) * fillQty
         existing.pnl += realizedPnl
         userPositions.delete(symbol)
-        BALANCES.get(userId)![symbol]!.locked -= marginToRelease
-        BALANCES.get(userId)![symbol]!.available += marginToRelease + realizedPnl
+        BALANCES.get(userId)!["USD"]!.locked -= marginToRelease
+        BALANCES.get(userId)!["USD"]!.available += marginToRelease + realizedPnl
         return
     }
 
@@ -82,6 +82,6 @@ export function applyFillToPosition(userId: string, symbol: string, fillQty: num
         margin: (remainderQty * fillPrice) / leverage,
         pnl: realizedPnl, // or track realized separately from this position's own unrealized pnl — your call
     })
-    BALANCES.get(userId)![symbol]!.locked -= marginToRelease
-    BALANCES.get(userId)![symbol]!.available += marginToRelease + realizedPnl
+    BALANCES.get(userId)!["USD"]!.locked -= marginToRelease
+    BALANCES.get(userId)!["USD"]!.available += marginToRelease + realizedPnl
 }

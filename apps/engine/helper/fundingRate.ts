@@ -15,20 +15,20 @@ function applyFunding(symbol: string, fundingRate: number) {
         // LONG pays when fundingRate > 0, receives when < 0
         // SHORT receives when fundingRate > 0, pays when < 0
         if (position.side === "LONG" && fundingRate > 0) {
-            if (userBalance[symbol].available < payment) {
+            if (userBalance["USD"]!.available < payment) {
                 liquidatePositions(symbol, INDEX_PRICES.get(symbol)!);
             } else {
-                userBalance[symbol].available -= payment;
+                userBalance["USD"]!.available -= payment;
             }
         } else if (position.side === "SHORT" && fundingRate < 0) {
-            if (userBalance[symbol].available < Math.abs(payment)) {
+            if (userBalance["USD"]!.available < Math.abs(payment)) {
                 liquidatePositions(symbol, INDEX_PRICES.get(symbol)!);
             } else {
-                userBalance[symbol].available += payment;
+                userBalance["USD"]!.available += payment;
             }
         } else {
             // receiving funding — always safe
-            userBalance[symbol].available += payment;
+            userBalance["USD"]!.available += payment;
         }
     }
 }
@@ -40,7 +40,7 @@ export function calculateAndApplyFunding(symbol: string) {
     const orderBook = ORDERBOOK.get(symbol);
     if (!orderBook) return;
 
-    // mark price = midpoint of best bid/ask, fallback to index
+    // mark price = fallback to index
     let markPrice = indexPrice;
     const bestBid = orderBook.bids.size > 0 ? Math.max(...orderBook.bids.keys()) : null;
     const bestAsk = orderBook.asks.size > 0 ? Math.min(...orderBook.asks.keys()) : null;
@@ -50,7 +50,7 @@ export function calculateAndApplyFunding(symbol: string) {
     }
 
     // fundingRate per 8h period
-    const fundingIntervalsPerDay = 3; // 24h / 8h
+    const fundingIntervalsPerDay = 3; 
     const fundingRate = ((markPrice - indexPrice) / indexPrice) * (1 / fundingIntervalsPerDay);
 
     applyFunding(symbol, fundingRate);

@@ -30,15 +30,15 @@ export function liquidatePositions(symbol: string, price: number) {
         liquidations.push({ userId, fill });
 
         const userBalance = BALANCES.get(userId);
-        if (userBalance && userBalance[symbol]) {
-            userBalance[symbol].locked -= position.margin;
-            userBalance[symbol].available += position.margin;
+        if (userBalance && userBalance["USD"]) {
+            userBalance["USD"].locked -= position.margin;
+            userBalance["USD"].available += position.margin;
 
             const unrealizedPnl = position.side === "LONG"
                 ? (price - position.averagePrice) * position.qty
                 : (position.averagePrice - price) * position.qty;
 
-            userBalance[symbol].available += unrealizedPnl;
+            userBalance["USD"].available += unrealizedPnl;
         }
 
         position.pnl += position.side === "LONG"

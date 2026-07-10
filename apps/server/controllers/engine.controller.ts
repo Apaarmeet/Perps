@@ -71,12 +71,11 @@ export async function onRamp(req:Request, res: Response){
         return res.status(400).json({message:"Invalid Input"})
     }
 
-    const {amount, symbol} = verify.data
+    const {amount} = verify.data
 
     try {
         const response = await loopback("onRamp", {
             userId,
-            symbol,
             amount
         })
         res.status(200).json({ response })

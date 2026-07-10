@@ -28,7 +28,7 @@ export function handleCancelOrder(payload : cancelOrderInput){
     const USDBalance = userBalance!["USD"]
 
     const remainingQty = order.qty-order.filledQty
-    const marginToRelease = order.price!  *  remainingQty
+    const marginToRelease = (order.price!  *  remainingQty)/order.leverage
     USDBalance!.locked -= marginToRelease
     USDBalance!.available += marginToRelease
 

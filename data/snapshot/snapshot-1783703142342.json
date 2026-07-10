@@ -1,0 +1,22 @@
+{
+  "balances": [
+    [
+      "u1",
+      {
+        "USD": {
+          "available": 5000,
+          "locked": 0
+        },
+        "BTCUSD": {
+          "available": 0,
+          "locked": 0
+        }
+      }
+    ]
+  ],
+  "orderBooks": [],
+  "positions": [],
+  "orders": [],
+  "fills": [],
+  "indexPrices": []
+}
