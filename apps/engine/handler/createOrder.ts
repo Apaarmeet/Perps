@@ -5,7 +5,7 @@ export function handleCreateOrder(payload: createOrderInput){
     const {userId, type, side, symbol, price, qty, leverage, sllipage} = payload
     
     const userBalance = BALANCES.get(userId)
-    if(!userBalance) return new Error("Wallet not initalised")
+    if(!userBalance) throw new Error("Wallet not initalised")
     
     let USDBalance = userBalance["USD"]
     
@@ -37,7 +37,7 @@ export function handleCreateOrder(payload: createOrderInput){
             marginToBeLocked = (price! * qty) / leverage
         }
 
-        if(USDBalance?.available! < marginToBeLocked!) return new Error("Insufficient Balance")
+        if(USDBalance?.available! < marginToBeLocked!) throw new Error("Insufficient Balance")
 
         USDBalance!.available -= marginToBeLocked!
         USDBalance!.locked += marginToBeLocked!
@@ -57,7 +57,7 @@ export function handleCreateOrder(payload: createOrderInput){
 
                 const orders = orderBook.asks.get(bestPrice)
                 
-                if(!orders) return new Error("No liquidity available")
+                if(!orders) throw new Error("No liquidity available")
 
                 for(const restingOrder of orders){
                     if(remainingQty <= 0) break;
@@ -103,7 +103,7 @@ export function handleCreateOrder(payload: createOrderInput){
 
             if(type === "limit" ){
                 if(remainingQty > 0 ){
-                    if(price === null) return new Error("Price is required in limit Order")
+                    if(price === null) throw new Error("Price is required in limit Order")
     
                     let restingOrder:RestingOrder = {
                         orderId,
@@ -138,7 +138,8 @@ export function handleCreateOrder(payload: createOrderInput){
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })
-               
+
+                return { order: ORDERS.get(orderId), fills }
             }
 
 
@@ -162,6 +163,8 @@ export function handleCreateOrder(payload: createOrderInput){
                 let balanceToBeReleased = marginToBeLocked - (totalValueOfOrder / leverage)
                 USDBalance!.locked -= balanceToBeReleased;
                 USDBalance!.available += balanceToBeReleased
+
+                return { order: ORDERS.get(orderId), fills }
             }
             
         }
@@ -180,7 +183,7 @@ export function handleCreateOrder(payload: createOrderInput){
             marginToBeLocked = (price! * qty) / leverage
             }
 
-            if(USDBalance?.available! < marginToBeLocked!) return new Error("Insufficient Balance")
+            if(USDBalance?.available! < marginToBeLocked!) throw new Error("Insufficient Balance")
 
             USDBalance!.available -= marginToBeLocked!
             USDBalance!.locked += marginToBeLocked!
@@ -198,7 +201,7 @@ export function handleCreateOrder(payload: createOrderInput){
 
                 let orders = orderBook.bids.get(bestPrice)
 
-                if(!orders) return new Error("No liquidity available")
+                if(!orders) throw new Error("No liquidity available")
 
                 for(const restingOrder of orders){
                     if(remainingQty <= 0) break ;
@@ -247,7 +250,7 @@ export function handleCreateOrder(payload: createOrderInput){
 
             if(type === "limit"){
                 if(remainingQty > 0){
-                    if(price === null ) return new Error ("price is required in limit order")
+                    if(price === null ) throw new Error ("price is required in limit order")
                     
                     let restingOrder : RestingOrder = {
                          orderId,
@@ -282,6 +285,8 @@ export function handleCreateOrder(payload: createOrderInput){
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })
+
+                return { order: ORDERS.get(orderId), fills }
             }
 
             if(type === "market"){
@@ -304,6 +309,8 @@ export function handleCreateOrder(payload: createOrderInput){
                 let balanceToBeReleased = marginToBeLocked - (totalValueOfOrder / leverage)
                 USDBalance!.locked -= balanceToBeReleased;
                 USDBalance!.available += balanceToBeReleased
+
+                return { order: ORDERS.get(orderId), fills }
             }
 
         }
