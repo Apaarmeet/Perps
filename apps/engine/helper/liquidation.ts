@@ -2,6 +2,7 @@ import { BALANCES, FILLS, INDEX_PRICES, POSITIONS, type Fill } from "../exchange
 
 export function liquidatePositions(symbol: string, price: number) {
     INDEX_PRICES.set(symbol, price);
+    const liquidations: { userId: string; fill: Fill }[] = [];
 
     for (const [userId, userPositions] of POSITIONS) {
         const position = userPositions.get(symbol);
@@ -26,6 +27,7 @@ export function liquidatePositions(symbol: string, price: number) {
             createdAt,
         };
         FILLS.push(fill);
+        liquidations.push({ userId, fill });
 
         const userBalance = BALANCES.get(userId);
         if (userBalance && userBalance[symbol]) {
@@ -45,4 +47,6 @@ export function liquidatePositions(symbol: string, price: number) {
 
         userPositions.delete(symbol);
     }
+
+    return liquidations;
 }

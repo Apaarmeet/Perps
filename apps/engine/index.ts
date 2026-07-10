@@ -1,12 +1,19 @@
 
     import { consumeEngineRequests } from "./helper/redisConsumer";
     import { startPriceFeed } from "./helper/priceFeed";
+import { INDEX_PRICES } from "./exchangeStore";
+import { calculateAndApplyFunding } from "./helper/fundingRate";
 
-    const SUPPORTED_SYMBOLS = ["BTCUSD", "ETHUSD", "SOLUSD"];
+    const FUNDING_INTERVAL_MS = 8 * 60 * 60 * 1000;
 
-    for (const symbol of SUPPORTED_SYMBOLS) {
-      startPriceFeed(symbol);
-    }
+
+      startPriceFeed();
+
+    setInterval(() => {
+      for (const symbol of INDEX_PRICES.keys()) {
+        calculateAndApplyFunding(symbol);
+      }
+    }, FUNDING_INTERVAL_MS);
 
     consumeEngineRequests().catch((err) => {
       console.error("Redis consumer crashed:", err);

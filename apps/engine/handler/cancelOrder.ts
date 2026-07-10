@@ -4,9 +4,9 @@ export function handleCancelOrder(payload : cancelOrderInput){
     const {userId, orerId} = payload 
 
     const order = ORDERS.get(orerId)
-    if(!order) return new Error("Order Does not Exist")
-    if(order.userId !== userId) return new Error("Unauthorised")
-    if(order.status === "FILLED" || order.status==="CANCELLED") return new Error("Order already filled or cancelled")
+    if(!order) throw new Error("Order Does not Exist")
+    if(order.userId !== userId) throw new Error("Unauthorised")
+    if(order.status === "FILLED" || order.status==="CANCELLED") throw new Error("Order already filled or cancelled")
 
 
     const orderBook = ORDERBOOK.get(order.symbol)

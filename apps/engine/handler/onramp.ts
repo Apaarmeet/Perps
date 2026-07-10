@@ -4,7 +4,7 @@ export async function handleOnRamp(payload: onrampInput){
     const {userId, symbol, amount} = payload
 
     if(amount <= 0) {
-        return new Error("Amount mudt be positive")
+        throw new Error("Amount must be positive")
     }
 
 

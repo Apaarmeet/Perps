@@ -29,11 +29,16 @@ export async function consumeEngineRequests(){
                         ok: "true",
                         data: JSON.stringify(result)
                     });
-                     await writeclient.xAdd("engine:db-writes", "*", {                   // new
+                     await writeclient.xAdd("engine:db-writes", "*", {
                             correlationId,
                             commandType: type,
+                            ok:"true",
                             data: JSON.stringify(result),
-                     }); 
+                    });
+                    await writeclient.xAdd("engine-dataStream", "*", {
+                            commandType: type,
+                            data: JSON.stringify(result),
+                    });
                 } catch (err) {
                     await writeclient.xAdd(responseStream as string , "*", {
                         correlationId: correlationId as string,

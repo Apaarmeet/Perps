@@ -1,36 +1,28 @@
 import { liquidatePositions } from "./liquidation";
+import { getRedisClient } from "@repo/redis";
 
-export function startPriceFeed(symbol: string) {
-    // normalize symbol for binance (e.g. "BTCUSD" -> "btcusdt")
-    const binanceSymbol = `${symbol.toLowerCase().replace("usd", "usdt")}`;
-    const WS_URL = `wss://stream.binance.com:9443/ws/${binanceSymbol}@trade`;
+const priceFeeder = await getRedisClient();
+const writeClient = await getRedisClient();
 
-    function connect() {
-        const ws = new WebSocket(WS_URL);
+export async function startPriceFeed() {
+    while (true) {
+        const streams = await priceFeeder.xRead(
+            [{ key: "price-feederStream", id: "$" }],
+            { BLOCK: 0 }
+        );
 
-        ws.onopen = () => {
-            console.log(`Price feed connected for ${symbol} (${binanceSymbol})`);
-        };
+        for (const stream of streams!) {
+            for (const msg of stream.messages) {
+                const { symbol, price } = msg.message;
+                const liquidations = liquidatePositions(symbol as string, parseFloat(price as string));
 
-        ws.onmessage = (event) => {
-            try {
-                const trade = JSON.parse(event.data as string);
-                const price = parseFloat(trade.p);
-                liquidatePositions(symbol.toUpperCase(), price);
-            } catch (err) {
-                console.error("Price feed parse error:", err);
+                for (const liq of liquidations) {
+                    writeClient.xAdd("engine-dataStream", "*", {
+                        commandType: "liquidation",
+                        data: JSON.stringify(liq),
+                    });
+                }
             }
-        };
-
-        ws.onerror = (err) => {
-            console.error(`Price feed error for ${symbol}:`, err);
-        };
-
-        ws.onclose = () => {
-            console.log(`Price feed disconnected for ${symbol}, reconnecting in 3s...`);
-            setTimeout(connect, 3000);
-        };
+        }
     }
-
-    connect();
 }
