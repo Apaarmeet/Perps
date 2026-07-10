@@ -36,6 +36,7 @@ export async function getUserBalance(req: Request, res:Response){
             userId,
             error: err
         })
+        res.status(500).json({ error: (err as Error).message || "Failed to get balance" })
     }
 }
 
@@ -59,6 +60,7 @@ export async function cancelOrder(req: Request, res:Response){
             orderId,
             error: err
         })
+        res.status(500).json({ error: (err as Error).message || "Failed to cancel order" })
     }
 }
 

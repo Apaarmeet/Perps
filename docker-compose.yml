@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    command: >
+      sh -c "cd packages/db && bunx prisma migrate deploy"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:mysecretpassword@postgres:5432/postgres
+    restart: "no"
+
+  engine:
+    build: .
+    command: bun run apps/engine/index.ts
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - snapshot-data:/app/data/snapshot
+    restart: unless-stopped
+
+  server:
+    build: .
+    command: bun run apps/server/index.ts
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:mysecretpassword@postgres:5432/postgres
+      JWT_SECRET: mysupersecurejwtsecret
+    restart: unless-stopped
+
+  db-puller:
+    build: .
+    command: bun run apps/db-puller/index.ts
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:mysecretpassword@postgres:5432/postgres
+    restart: unless-stopped
+
+  wss-connections:
+    build: .
+    command: bun run apps/wssConnections/index.ts
+    ports:
+      - "3002:3002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_URL: redis://redis:6379
+    restart: unless-stopped
+
+  web:
+    build: .
+    command: sh -c "cd apps/web && bunx next build && bunx next start --port 3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - server
+      - wss-connections
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  snapshot-data:

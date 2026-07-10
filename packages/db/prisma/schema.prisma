@@ -72,3 +72,15 @@ enum Side {
   buy
   sell
 }
+
+model Candle {
+  time     DateTime
+  symbol   String
+  interval String
+  open     Float
+  high     Float
+  low      Float
+  close    Float
+
+  @@id([time, symbol, interval])
+}

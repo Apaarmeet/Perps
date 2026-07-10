@@ -142,3 +142,13 @@ export const POSITIONS = new Map<string, Map<string, Position>>()
 export const ORDERS = new Map<string, OrderRecord>()
 export const FILLS: Fill[] = []
 export const INDEX_PRICES = new Map<string, number>()
+export const CANDLES = new Map<string, Candle[]>()
+
+export interface Candle {
+    symbol: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    timestamp: number;
+}

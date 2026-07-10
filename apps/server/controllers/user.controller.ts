@@ -24,7 +24,7 @@ export async function signup(req: Request, res: Response){
     })
 
     if(existingUser){
-        res.status(400).json({
+        return res.status(400).json({
             error:"User already exists"
         })
     }
@@ -39,10 +39,16 @@ export async function signup(req: Request, res: Response){
         }
     })
 
+    const jwtsecret = process.env.JWT_SECRET as unknown as string
+    const token = jwt.sign({ userId: user.id }, jwtsecret)
+
     return res.status(200).json({
-        id: user.id,
-        name: user.name,
-        email: user.email
+        token,
+        user: {
+            id: user.id,
+            name: user.name,
+            email: user.email
+        }
     })
 }
 
@@ -77,11 +83,11 @@ export async function signin(req: Request, res: Response){
     }
 
     const token = jwt.sign({
-        userid: user.id
+        userId: user.id
     }, jwtsecret)
 
     return res.status(200).json({
-        token: `Bearer ${token}`,
+        token,
         user:{
             id: user.id,
             name: user.name,

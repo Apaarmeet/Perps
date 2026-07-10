@@ -1,0 +1,8 @@
+node_modules
+.next
+.turbo
+data
+.git
+.vercel
+coverage
+dist

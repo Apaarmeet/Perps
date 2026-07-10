@@ -225,7 +225,8 @@ export function handleCreateOrder(payload: createOrderInput){
 
                     FILLS.push(fill);
                     fills.push(fill);
-                     applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "LONG", restingOrder.leverage)
+                    
+                    applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "LONG", restingOrder.leverage)
                     applyFillToPosition(userId, symbol, qtyToBeFilled, bestPrice, "SHORT", leverage)
 
                     let makerOrder = ORDERS.get(restingOrder.orderId)
@@ -315,4 +316,4 @@ export function handleCreateOrder(payload: createOrderInput){
 
         }
     
-}
+}    
