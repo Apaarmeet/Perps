@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-bg-primary: #0a0b0d;
+  --color-bg-secondary: #111318;
+  --color-bg-tertiary: #181a20;
+  --color-bg-hover: #1e2028;
+  --color-bg-input: #14161c;
+
+  --color-border-default: #1e2028;
+  --color-border-strong: #2a2d35;
+  --color-border-accent: #3a3d47;
+
+  --color-text-primary: #f4f4f6;
+  --color-text-secondary: #858a94;
+  --color-text-muted: #555a64;
+
+  --color-green: #00d4a8;
+  --color-green-muted: rgba(0, 212, 168, 0.15);
+  --color-red: #f5465d;
+  --color-red-muted: rgba(245, 70, 93, 0.15);
+
+  --color-accent: #4c94ff;
+  --color-accent-hover: #3d7ce8;
+
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --animate-slide-up: slide-up 0.2s ease-out;
+  --animate-flash-green: flash-green 0.5s ease-out;
+  --animate-flash-red: flash-red 0.5s ease-out;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@keyframes flash-green {
+  0% { background-color: rgba(0, 212, 168, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(245, 70, 93, 0.3); }
+  100% { background-color: transparent; }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-feature-settings: "tnum" on;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
 }

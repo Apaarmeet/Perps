@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { cancelOrder, createorder, onRamp, openOrdersHandler, ordersHandler, fillsHandler, getUserBalance, getPositions, getDepth } from "../controllers/engine.controller";
+import { cancelOrder, createorder, onRamp, openOrdersHandler, ordersHandler, fillsHandler, getUserBalance, getPositions, getDepth, candleHistoryHandler } from "../controllers/engine.controller";
 import { middleware } from "../middleware";
 
 export const engineRouter = Router()
@@ -13,6 +13,7 @@ engineRouter.delete("/order", cancelOrder)
 engineRouter.get("/equity/available", getUserBalance)
 engineRouter.get("/positions/:marketId", getPositions);
 engineRouter.get("/depth/:marketId", getDepth)
+engineRouter.get("/candles/:marketId", candleHistoryHandler)
 engineRouter.get("/orders/open/:marketId", openOrdersHandler)
 engineRouter.get("/orders/:marketId", ordersHandler)
 engineRouter.get("/fills", fillsHandler);

@@ -160,3 +160,21 @@ export async function getDepth(req: Request, res: Response) {
     res.status(400).json({ error: (error as Error).message });
   }
 }
+
+export async function candleHistoryHandler(req: Request, res: Response) {
+  const marketId = req.params.marketId as string;
+  const interval = (req.query.interval as string) || "1m";
+  const limit = parseInt((req.query.limit as string) || "500");
+
+  try {
+    const { prisma } = await import("@repo/db");
+    const candles = await prisma.candle.findMany({
+      where: { symbol: marketId, interval },
+      orderBy: { time: "asc" },
+      take: Math.min(limit, 500),
+    });
+    res.status(200).json(candles);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+}

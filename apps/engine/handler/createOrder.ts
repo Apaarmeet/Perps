@@ -3,10 +3,10 @@ import { reconcileUserMargin } from "../helper/margin";
 import { applyFillToPosition } from "../helper/updatePosition";
 
 function validateOrder({ type, price, qty, leverage, sllipage }: createOrderInput) {
-    if (!Number.isFinite(qty) || qty <= 0) throw new Error("Quantity must be positive");
-    if (!Number.isFinite(leverage) || leverage <= 0) throw new Error("Leverage must be positive");
-    if (!Number.isFinite(sllipage) || sllipage < 0) throw new Error("Slippage must be non-negative");
-    if (type === "limit" && (!Number.isFinite(price) || price === null || price <= 0)) {
+    if (qty <= 0) throw new Error("Quantity must be positive");
+    if ( leverage <= 0) throw new Error("Leverage must be positive");
+    if ( sllipage < 0) throw new Error("Slippage must be non-negative");
+    if (type === "limit" && ( price === null || price <= 0)) {
         throw new Error("A positive price is required for limit orders");
     }
 }
@@ -28,7 +28,7 @@ export function handleCreateOrder(payload: createOrderInput) {
 
     const reservePrice = type === "limit" ? price! : bestPrice! * (1 + (sllipage / 100));
     const marginToReserve = (reservePrice * qty) / leverage;
-    if (!Number.isFinite(marginToReserve) || usd.available < marginToReserve) {
+    if ( usd.available < marginToReserve) {
         throw new Error("Insufficient balance");
     }
 

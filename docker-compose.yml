@@ -95,13 +95,6 @@ services:
       REDIS_URL: redis://redis:6379
     restart: unless-stopped
 
-  web:
-    build: .
-    command: sh -c "cd apps/web && bunx next dev --port 3001"
-    ports:
-      - "3001:3001"
-    restart: unless-stopped
-
 volumes:
   pgdata:
   snapshot-data:

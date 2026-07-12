@@ -4,7 +4,6 @@ import {getRedisClient} from "@repo/redis"
 const priceFeeder = await getRedisClient()
 
 export function startPriceFeed(symbol: string) {
-    // normalize symbol for binance (e.g. "BTCUSD" -> "btcusdt")
     const binanceSymbol = `${symbol.toLowerCase().replace("usd", "usdt")}`;
     const WS_URL = `wss://stream.binance.com:9443/ws/${binanceSymbol}@trade`;
 

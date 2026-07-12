@@ -1,9 +1,6 @@
 import { BALANCES, ORDERS, POSITIONS } from "../exchangeStore";
 
-/**
- * Keeps a user's collateral equal to the margin required by open positions
- * plus the unfilled portion of their resting limit orders.
- */
+
 export function reconcileUserMargin(userId: string) {
   const usd = BALANCES.get(userId)?.USD;
   if (!usd) return;
