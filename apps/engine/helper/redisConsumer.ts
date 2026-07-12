@@ -12,7 +12,7 @@ export async function consumeEngineRequests(){
             {BLOCK: 0}
         );
 
-        for(const stream of streams! ){
+        for(const stream of streams ?? []){
             for(const msg of stream.messages){
                 const {type, correlationId, responseStream, payload} = msg.message;
                 lastId = msg.id

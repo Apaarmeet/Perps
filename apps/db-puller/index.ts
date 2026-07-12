@@ -95,11 +95,13 @@ async function handleCandle(msg: any) {
 }
 
 async function dbPuller() {
+    let dataStreamid = "$"
+    let dataWriteid = "$"
     while (true) {
         const streams = await redis.xRead(
             [
-                { key: "engine:db-writes", id: "$" },
-                { key: "engine-dataStream", id: "$" },
+                { key: "engine:db-writes", id: dataWriteid},
+                { key: "engine-dataStream", id: dataStreamid },
             ],
             { BLOCK: 0 }
         );
@@ -108,8 +110,10 @@ async function dbPuller() {
             for (const msg of stream.messages) {
                 if (stream.name === "engine:db-writes") {
                     await handleDbWrites(msg)
+                    dataWriteid = msg.id
                 } else if (stream.name === "engine-dataStream") {
                     await handleCandle(msg)
+                    dataStreamid = msg.id
                 }
             }
         }

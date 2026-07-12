@@ -4,7 +4,9 @@ export function handleGetDepth(payload: getDepthInput){
     const {symbol} = payload
 
     const orderBook = ORDERBOOK.get(symbol)
-    if (!orderBook) throw new Error(`market ${symbol} doesn't exist`);
+    if (!orderBook) {
+        return { symbol, asks: [], bids: [] };
+    }
 
     const asks = [...orderBook.asks.entries()]
         . map(([price, orders])=> [

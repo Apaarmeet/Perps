@@ -28,7 +28,7 @@ function applyFunding(symbol: string, fundingRate: number) {
             }
         } else {
             // receiving funding — always safe
-            userBalance["USD"]!.available += payment;
+            userBalance["USD"]!.available += Math.abs(payment);
         }
     }
 }

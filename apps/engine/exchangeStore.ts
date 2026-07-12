@@ -63,7 +63,6 @@ export interface cancelOrderInput {
 }
 export interface onrampInput {
     userId : string,
-    symbol: string,
     amount: number
 }
 export interface getPositionInput {

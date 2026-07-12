@@ -1,331 +1,136 @@
-import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, type Balance, type createOrderInput, type Fill, type OrderBook, type RestingOrder } from "../exchangeStore";
+import { BALANCES, FILLS, ORDERBOOK, ORDERS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
+import { reconcileUserMargin } from "../helper/margin";
 import { applyFillToPosition } from "../helper/updatePosition";
 
-export function handleCreateOrder(payload: createOrderInput){
-    const {userId, type, side, symbol, price, qty, leverage, sllipage} = payload
-    
-    const userBalance = BALANCES.get(userId)
-    if(!userBalance) throw new Error("Wallet not initalised")
-    
-    let USDBalance = userBalance["USD"]
-    
+function validateOrder({ type, price, qty, leverage, sllipage }: createOrderInput) {
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("Quantity must be positive");
+    if (!Number.isFinite(leverage) || leverage <= 0) throw new Error("Leverage must be positive");
+    if (!Number.isFinite(sllipage) || sllipage < 0) throw new Error("Slippage must be non-negative");
+    if (type === "limit" && (!Number.isFinite(price) || price === null || price <= 0)) {
+        throw new Error("A positive price is required for limit orders");
+    }
+}
 
-    let orderBook = ORDERBOOK.get(symbol)
+export function handleCreateOrder(payload: createOrderInput) {
+    const { userId, type, side, symbol, price, qty, leverage, sllipage } = payload;
+    validateOrder(payload);
 
-    if(!orderBook){
-         orderBook ={
-            bids: new Map<number, RestingOrder[]>(),
-            asks: new Map<number, RestingOrder[]>(),
-        } 
-        ORDERBOOK.set(symbol, orderBook)
+    const usd = BALANCES.get(userId)?.USD;
+    if (!usd) throw new Error("Wallet not initialised");
+
+    const orderBook = ORDERBOOK.get(symbol) ?? { bids: new Map(), asks: new Map() };
+    ORDERBOOK.set(symbol, orderBook);
+
+    const oppositeLevels = side === "LONG" ? orderBook.asks : orderBook.bids;
+    const prices = [...oppositeLevels.keys()].sort(side === "LONG" ? (a, b) => a - b : (a, b) => b - a);
+    const bestPrice = prices[0];
+    if (type === "market" && bestPrice === undefined) throw new Error("No liquidity available");
+
+    const reservePrice = type === "limit" ? price! : bestPrice! * (1 + (sllipage / 100));
+    const marginToReserve = (reservePrice * qty) / leverage;
+    if (!Number.isFinite(marginToReserve) || usd.available < marginToReserve) {
+        throw new Error("Insufficient balance");
     }
 
-    const orderId = crypto.randomUUID()
-    const createdAt = Date.now()
-   
-    if(side === "LONG"){
-        
-        const AskPrices = orderBook.asks.keys()
-        const bestAsk = Math.min(...AskPrices)
-        let marginToBeLocked : number  = 0
+    usd.available -= marginToReserve;
+    usd.locked += marginToReserve;
 
-        if(type ==="market"){
-            if(!bestAsk) throw new Error("No liquidity available")
-            marginToBeLocked = (((bestAsk * qty) + ((sllipage/100) * (bestAsk * qty)) ) / leverage )
+    const orderId = crypto.randomUUID();
+    const createdAt = Date.now();
+    let remainingQty = qty;
+    let filledQty = 0;
+    const fills: Fill[] = [];
+    const touchedUsersinRestingOrders = new Set<string>([userId]);
+
+    for (const levelPrice of prices) {
+        if (remainingQty <= 0) break;
+        if (type === "limit" && (side === "LONG" ? levelPrice > price! : levelPrice < price!)) break;
+
+        const restingOrders = oppositeLevels.get(levelPrice);
+        if (!restingOrders) continue;
+
+        for (const restingOrder of [...restingOrders]) {
+            if (remainingQty <= 0) break;
+
+            const availableAtLevel = restingOrder.qty - restingOrder.filledQty;
+            if (availableAtLevel <= 0) continue;
+
+            const fillQty = Math.min(remainingQty, availableAtLevel);
+            const fill: Fill = {
+                fillId: crypto.randomUUID(),
+                qty: fillQty,
+                price: levelPrice,
+                makerOrderid: restingOrder.orderId,
+                takerOrderId: orderId,
+                symbol,
+                createdAt,
+            };
+
+            restingOrder.filledQty += fillQty;
+            filledQty += fillQty;
+            remainingQty -= fillQty;
+            FILLS.push(fill);
+            fills.push(fill);
+
+            const makerOrder = ORDERS.get(restingOrder.orderId);
+            if (makerOrder) {
+                makerOrder.filledQty += fillQty;
+                makerOrder.fills.push(fill);
+                makerOrder.status = makerOrder.filledQty === makerOrder.qty ? "filled" : "partially_filled";
+            }
+
+            const makerSide = side === "LONG" ? "SHORT" : "LONG";
+            applyFillToPosition(restingOrder.userId, symbol, fillQty, levelPrice, makerSide, restingOrder.leverage);
+            applyFillToPosition(userId, symbol, fillQty, levelPrice, side, leverage);
+            touchedUsersinRestingOrders.add(restingOrder.userId);
+
+            if (restingOrder.filledQty === restingOrder.qty) {
+                const remainingAtLevel = (oppositeLevels.get(levelPrice) ?? []).filter(
+                    (order: RestingOrder) => order.orderId !== restingOrder.orderId,
+                );
+                if (remainingAtLevel.length === 0) oppositeLevels.delete(levelPrice);
+                else oppositeLevels.set(levelPrice, remainingAtLevel);
+            }
         }
+    }
 
-        if(type === "limit"){
-            marginToBeLocked = (price! * qty) / leverage
-        }
+    const status = remainingQty === 0 ? "filled" : filledQty > 0 ? "partially_filled" : "open";
+    ORDERS.set(orderId, {
+        orderid: orderId,
+        userId,
+        qty,
+        filledQty,
+        price: type === "limit" ? price : null,
+        side,
+        type,
+        symbol,
+        leverage,
+        margin: marginToReserve,
+        status,
+        fills,
+        createdAt,
+    });
 
-        if(USDBalance?.available! < marginToBeLocked!) throw new Error("Insufficient Balance")
+    if (type === "limit" && remainingQty > 0) {
+        const restingOrder: RestingOrder = {
+            orderId,
+            userId,
+            side,
+            type: "limit",
+            symbol,
+            filledQty,
+            qty,
+            status,
+            price: price!,
+            leverage,
+            createdAt,
+        };
+        const ownLevels = side === "LONG" ? orderBook.bids : orderBook.asks;
+        const ordersAtPrice = ownLevels.get(price!) ?? [];
+        ordersAtPrice.push(restingOrder);
+        ownLevels.set(price!, ordersAtPrice);
+    }
 
-        USDBalance!.available -= marginToBeLocked!
-        USDBalance!.locked += marginToBeLocked!
-
-        const sortedAskprice = [...orderBook.asks.keys()].sort((a,b)=>a-b)
-
-        let remainingQty = qty;
-        let filledQty = 0
-        let totalValueOfOrder = 0 
-        let fills : Fill[] = []
-        for(const bestPrice of sortedAskprice){
-                if(remainingQty <= 0){
-                    break;
-                }
-
-                if(type === "limit" && bestPrice > price! ) break;
-
-                const orders = orderBook.asks.get(bestPrice)
-                
-                if(!orders) throw new Error("No liquidity available")
-
-                for(const restingOrder of orders){
-                    if(remainingQty <= 0) break;
-
-                    const remainingQtyInRestingOrder = restingOrder.qty - restingOrder.filledQty
-                    const qtyToBeFilled = Math.min(remainingQty, remainingQtyInRestingOrder)
-                    filledQty += qtyToBeFilled
-                    restingOrder.filledQty += qtyToBeFilled
-                    remainingQty -= qtyToBeFilled
-                    totalValueOfOrder +=  qtyToBeFilled * restingOrder.price
-                    const fill = {
-                        fillId: crypto.randomUUID(),
-                        qty: qtyToBeFilled,
-                        price: bestPrice,
-                        makerOrderid: restingOrder.orderId,
-                        takerOrderId: orderId,
-                        symbol: symbol,
-                        createdAt
-                    }
-
-                    FILLS.push(fill)
-                    fills.push(fill)
-                    applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "SHORT", restingOrder.leverage)
-                    applyFillToPosition(userId, symbol, qtyToBeFilled, bestPrice, "LONG", leverage)
-                    let makerOrder = ORDERS.get(restingOrder.orderId)
-                    
-                    if(makerOrder){
-                        makerOrder.filledQty += qtyToBeFilled;
-                        makerOrder.fills.push(fill)
-                        if(makerOrder.qty === makerOrder.filledQty){
-                          makerOrder.status = "filled"   
-                        } else {
-                            makerOrder.status = "partially_filled"
-                        } 
-                    } 
-
-                    if(restingOrder.filledQty === restingOrder.qty){
-                        const updatedOrderBook = orders?.filter((f)=> f.orderId != restingOrder.orderId)
-                        if(updatedOrderBook.length === 0){
-                            orderBook.asks.delete(bestPrice)
-                        } else {
-                            orderBook.asks.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
-                        }
-                    }
-                   
-                }
-            }
-
-            if(type === "limit" ){
-                if(remainingQty > 0 ){
-                    if(price === null) throw new Error("Price is required in limit Order")
-    
-                    let restingOrder:RestingOrder = {
-                        orderId,
-                        userId,
-                        side: "LONG",
-                        type: "limit",
-                        symbol,
-                        filledQty,
-                        qty,
-                        status: filledQty > 0 ? "partially_filled" : "open" ,
-                        price : price,
-                        leverage,
-                        createdAt
-                    }
-                    const levelBidsOrders = orderBook.bids.get(price) ?? []
-                    levelBidsOrders.push(restingOrder)
-                    orderBook.bids.set(price, levelBidsOrders)
-                }
-
-                 ORDERS.set(orderId, {
-                    orderid : orderId,
-                    userId,
-                    qty,
-                    filledQty,
-                    price: price,
-                    side: "LONG",
-                    type: "limit",
-                    symbol,
-                    leverage,
-                    margin: ((price! * qty) / leverage),
-                    status: remainingQty > 0 ? "partially_filled" : "filled",
-                    fills: FILLS.filter((f)=> f.takerOrderId === orderId),
-                    createdAt
-                })
-
-                return { order: ORDERS.get(orderId), fills }
-            }
-
-
-            if(type === "market"){
-                ORDERS.set(orderId, {
-                    orderid : orderId,
-                    userId,
-                    qty,
-                    filledQty,
-                    price: null,
-                    side: "LONG",
-                    type: "market",
-                    symbol,
-                    leverage,
-                    margin: marginToBeLocked,
-                    status: remainingQty > 0 ? "partially_filled" : "filled",
-                    fills: FILLS.filter((f)=> f.takerOrderId === orderId),
-                    createdAt
-                })
-                
-                let balanceToBeReleased = marginToBeLocked - (totalValueOfOrder / leverage)
-                USDBalance!.locked -= balanceToBeReleased;
-                USDBalance!.available += balanceToBeReleased
-
-                return { order: ORDERS.get(orderId), fills }
-            }
-            
-        }
-
-    if(side === "SHORT"){
-
-            const BidsPrices = orderBook.bids.keys()
-            const bestBid = Math.max(...BidsPrices)
-            let marginToBeLocked : number = 0
-
-            if(type === "market"){
-                if(!bestBid) throw new Error("no liquidity available")
-                marginToBeLocked = (((bestBid * qty) + ((sllipage/100) * (bestBid * qty)) ) / leverage )
-            }
-
-            if(type === "limit"){
-            marginToBeLocked = (price! * qty) / leverage
-            }
-
-            if(USDBalance?.available! < marginToBeLocked!) throw new Error("Insufficient Balance")
-
-            USDBalance!.available -= marginToBeLocked!
-            USDBalance!.locked += marginToBeLocked!
-
-            const sortedBidsPrices = [...orderBook.bids.keys()].sort((a,b)=> b-a)
-
-            let remainingQty = qty;
-            let filledQty = 0;
-            let totalValueOfOrder = 0
-            let fills: Fill[] = []
-            for(const bestPrice of sortedBidsPrices){
-                if(remainingQty <= 0) break;
-
-                if(type === "limit" && bestPrice < price!) break;
-
-                let orders = orderBook.bids.get(bestPrice)
-
-                if(!orders) throw new Error("No liquidity available")
-
-                for(const restingOrder of orders){
-                    if(remainingQty <= 0) break ;
-
-                    const remainingQtyInRestingOrder = restingOrder.qty - restingOrder.filledQty
-                    const qtyToBeFilled = Math.min(remainingQtyInRestingOrder, remainingQty)
-                    filledQty += qtyToBeFilled;
-                    restingOrder.filledQty += qtyToBeFilled
-                    remainingQty -= qtyToBeFilled
-                    totalValueOfOrder += qtyToBeFilled * restingOrder.price
-
-                    const fill : Fill = {
-                        fillId: crypto.randomUUID(),
-                        qty: qtyToBeFilled,
-                        price: bestPrice,
-                        makerOrderid: restingOrder.orderId,
-                        takerOrderId: orderId,
-                        symbol: symbol,
-                        createdAt
-                    }
-
-                    FILLS.push(fill);
-                    fills.push(fill);
-                    
-                    applyFillToPosition(restingOrder.userId, symbol, qtyToBeFilled, bestPrice, "LONG", restingOrder.leverage)
-                    applyFillToPosition(userId, symbol, qtyToBeFilled, bestPrice, "SHORT", leverage)
-
-                    let makerOrder = ORDERS.get(restingOrder.orderId)
-
-                    if(makerOrder){
-                        makerOrder.filledQty += qtyToBeFilled;
-                        makerOrder.fills.push(fill)
-                        if(makerOrder.qty === makerOrder.filledQty){
-                          makerOrder.status = "filled"   
-                        } else {
-                            makerOrder.status = "partially_filled"
-                        } 
-                    } 
-                    if(restingOrder.filledQty === restingOrder.qty){
-                        const updatedOrderBook = orders?.filter((f)=> f.orderId != restingOrder.orderId)
-                        if(updatedOrderBook.length === 0){
-                            orderBook.bids.delete(bestPrice)
-                        } else {
-                            orderBook.bids.set(bestPrice,updatedOrderBook!) // remove the resting order if filledQty === qty price and price if there is no resting order against that, from orderbook 
-                        }
-                    }
-                    
-                }
-
-
-            }
-
-            if(type === "limit"){
-                if(remainingQty > 0){
-                    if(price === null ) throw new Error ("price is required in limit order")
-                    
-                    let restingOrder : RestingOrder = {
-                         orderId,
-                        userId,
-                        side: "SHORT",
-                        type: "limit",
-                        symbol,
-                        filledQty,
-                        qty,
-                        status: filledQty > 0 ? "partially_filled" : "open" ,
-                        price : price,
-                        leverage,
-                        createdAt
-                    }
-                    const levelAsksOrders = orderBook.asks.get(price) ?? []
-                    levelAsksOrders.push(restingOrder);
-                    orderBook.asks.set(price, levelAsksOrders)
-                }
-
-                ORDERS.set(orderId, {
-                    orderid: orderId,
-                    userId,
-                    qty,
-                    filledQty,
-                    price: price,
-                    side: "SHORT",
-                    type: "limit",
-                    symbol,
-                    leverage,
-                    margin: ((price! * qty) / leverage),
-                    status: remainingQty > 0 ? "partially_filled" : "filled",
-                    fills: FILLS.filter((f)=> f.takerOrderId === orderId),
-                    createdAt
-                })
-
-                return { order: ORDERS.get(orderId), fills }
-            }
-
-            if(type === "market"){
-                ORDERS.set(orderId, {
-                    orderid : orderId,
-                    userId,
-                    qty,
-                    filledQty,
-                    price: null,
-                    side: "SHORT",
-                    type: "market",
-                    symbol,
-                    leverage,
-                    margin: marginToBeLocked,
-                    status: remainingQty > 0 ? "partially_filled" : "filled",
-                    fills: FILLS.filter((f)=> f.takerOrderId === orderId),
-                    createdAt
-                })
-                
-                let balanceToBeReleased = marginToBeLocked - (totalValueOfOrder / leverage)
-                USDBalance!.locked -= balanceToBeReleased;
-                USDBalance!.available += balanceToBeReleased
-
-                return { order: ORDERS.get(orderId), fills }
-            }
-
-        }
-    
-}    
+    for (const id of touchedUsersinRestingOrders) reconcileUserMargin(id);
+    return { order: ORDERS.get(orderId), fills };
+}

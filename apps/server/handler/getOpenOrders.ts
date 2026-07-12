@@ -5,7 +5,7 @@ export async function getOpenOrders(marketId: string, userId: string) {
     where: {
       userId,
       symbol: marketId,
-      Status: "open",
+      Status: { in: ["open", "partially_filled"] },
     },
     orderBy: { createdAt: "desc" },
   });

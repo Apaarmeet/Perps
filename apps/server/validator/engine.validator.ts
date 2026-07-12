@@ -1,20 +1,18 @@
 import z from "zod"
 
 export const createOrderSchema = z.object({
-  userId: z.string().optional(),
   type: z.enum(["market", "limit"]),
   side: z.enum(["LONG", "SHORT"]),
-  symbol: z.string(),
+  symbol: z.string().min(1),
   price: z.number().nullable(),
-  qty: z.number(),
-  leverage: z.number(),
-  sllipage: z.number(),
+  qty: z.number().positive(),
+  leverage: z.number().positive(),
+  sllipage: z.number().nonnegative(),
 });
 
 
 
 export const cancelOrderSchema = z.object({
-  userId: z.string().optional(),
   orderId: z.string()
 })
 
@@ -23,6 +21,5 @@ export const getdepthSchema = z.object({
 })
 
 export const onrampSchema = z.object({
-  userId: z.string().optional(),
   amount: z.number().positive()
 })

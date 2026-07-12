@@ -1,6 +1,6 @@
 import { BALANCES, type onrampInput } from "../exchangeStore";
 
-export async function handleOnRamp(payload: onrampInput){
+export function handleOnRamp(payload: onrampInput){
     const {userId, amount} = payload
 
     if(amount <= 0) {
@@ -24,4 +24,9 @@ export async function handleOnRamp(payload: onrampInput){
 
     userBalance["USD"].available += amount
 
-} 
+    return {
+        userId,
+        balance: userBalance,
+    }
+
+}

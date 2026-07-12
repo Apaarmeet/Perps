@@ -16,7 +16,6 @@ export async function createorder(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid Input" });
   }
   const data = verify.data
-  console.log(data)
 
   try {
     const response = await loopback("create-order", { userId, ...data });
@@ -31,7 +30,6 @@ export async function getUserBalance(req: Request, res:Response){
 
     try{
         const response = await loopback("get-user-balance", {userId})
-        console.log(response)
         res.status(200).json(response)
     } catch (err){
         console.error("userbalance error", {
@@ -82,9 +80,9 @@ export async function onRamp(req:Request, res: Response){
             userId,
             amount
         })
-        res.status(200).json({ response })
+        res.status(200).json(response)
     } catch (err) {
-        res.status(400).json({error: err})
+        res.status(400).json({error: (err as Error).message})
     }
     
 }
@@ -92,6 +90,10 @@ export async function onRamp(req:Request, res: Response){
 export async function openOrdersHandler(req: Request, res: Response) {
   const userId = req.userId;
   const marketId = req.params.marketId as string;
+
+  if (!marketId) {
+    return res.status(400).json({ error: "marketId is required" });
+  }
 
   if (!marketId) {
     return res.status(400).json({ error: "marketId is required" });
@@ -137,7 +139,7 @@ export async function getPositions(req: Request, res: Response) {
   const marketId = req.params.marketId as string;
 
   try {
-    const response = await loopback("get-positions", { userId, marketId });
+    const response = await loopback("get-position", { userId, symbol: marketId });
     res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
@@ -147,8 +149,12 @@ export async function getPositions(req: Request, res: Response) {
 export async function getDepth(req: Request, res: Response) {
   const marketId = req.params.marketId as string;
 
+  if (!marketId) {
+    return res.status(400).json({ error: "marketId is required" });
+  }
+
   try {
-    const response = await loopback("get-depth", { marketId });
+    const response = await loopback("get-depth", { symbol: marketId });
     res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });

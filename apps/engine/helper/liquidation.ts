@@ -1,4 +1,5 @@
 import { BALANCES, FILLS, INDEX_PRICES, POSITIONS, type Fill } from "../exchangeStore";
+import { reconcileUserMargin } from "./margin";
 
 export function liquidatePositions(symbol: string, price: number) {
     INDEX_PRICES.set(symbol, price);
@@ -31,9 +32,6 @@ export function liquidatePositions(symbol: string, price: number) {
 
         const userBalance = BALANCES.get(userId);
         if (userBalance && userBalance["USD"]) {
-            userBalance["USD"].locked -= position.margin;
-            userBalance["USD"].available += position.margin;
-
             const unrealizedPnl = position.side === "LONG"
                 ? (price - position.averagePrice) * position.qty
                 : (position.averagePrice - price) * position.qty;
@@ -46,6 +44,7 @@ export function liquidatePositions(symbol: string, price: number) {
             : (position.averagePrice - price) * position.qty;
 
         userPositions.delete(symbol);
+        reconcileUserMargin(userId);
     }
 
     return liquidations;

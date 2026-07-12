@@ -11,6 +11,7 @@ type PendingRequest = {
 
 const loopbackResponses = new Map<string, PendingRequest>();
 const backendId = crypto.randomUUID();
+let lastResponseId = "0-0";
 
 export async function loopback(type: string, payload: Record<string, unknown>) {
   const correlationId = crypto.randomUUID();
@@ -22,19 +23,17 @@ export async function loopback(type: string, payload: Record<string, unknown>) {
     }, 10_000);
 
     loopbackResponses.set(correlationId, { resolve, reject, timeout });
-    try{
-        writeClient.xAdd("engine:commands", "*", {
+    void writeClient.xAdd("engine:commands", "*", {
         type,
         correlationId,
         responseStream: `response:${backendId}`,
         payload: JSON.stringify(payload),
-    })
-    } catch (err){
+    }).catch((err) => {
       clearTimeout(timeout);
       loopbackResponses.delete(correlationId);
       console.error("Failed to send command to engine:", err);
       reject(new Error("Failed to send to engine"));
-    }
+    });
   });
 }
 
@@ -42,7 +41,7 @@ async function waitForResponse() {
   while (true) {
     const streams = await readClient.xRead(
       [
-        { key: `response:${backendId}`, id: "$" },
+        { key: `response:${backendId}`, id: lastResponseId },
       ],
       { BLOCK: 0, COUNT: 1 },
     );
@@ -51,6 +50,7 @@ async function waitForResponse() {
 
     for (const stream of streams) {
       for (const msg of stream.messages) {
+        lastResponseId = msg.id;
         const raw = msg.message;
         const correlationId = raw.correlationId as string;
         const pending = loopbackResponses.get(correlationId);

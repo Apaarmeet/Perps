@@ -13,7 +13,7 @@ export async function startPriceFeed() {
             { BLOCK: 0 }
         );
 
-        for (const stream of streams!) {
+        for (const stream of streams ?? []) {
             for (const msg of stream.messages) {
                 const { symbol, price } = msg.message;
                 const parsedSymbol = symbol as string;

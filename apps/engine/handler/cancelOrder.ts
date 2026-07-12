@@ -1,4 +1,5 @@
-import { BALANCES, ORDERBOOK, ORDERS, type cancelOrderInput } from "../exchangeStore";
+import { ORDERBOOK, ORDERS, type cancelOrderInput } from "../exchangeStore";
+import { reconcileUserMargin } from "../helper/margin";
 
 export function handleCancelOrder(payload : cancelOrderInput){
     const {userId, orderId} = payload 
@@ -6,6 +7,7 @@ export function handleCancelOrder(payload : cancelOrderInput){
     const order = ORDERS.get(orderId)
     if(!order) throw new Error("Order Does not Exist")
     if(order.userId !== userId) throw new Error("Unauthorised")
+    if(order.type !== "limit") throw new Error("Only resting limit orders can be cancelled")
     if(order.status === "filled" || order.status==="cancelled") throw new Error("Order already filled or cancelled")
 
 
@@ -24,15 +26,8 @@ export function handleCancelOrder(payload : cancelOrderInput){
         }
     }
 
-    const userBalance = BALANCES.get(userId)
-    const USDBalance = userBalance!["USD"]
-
-    const remainingQty = order.qty-order.filledQty
-    const marginToRelease = (order.price!  *  remainingQty)/order.leverage
-    USDBalance!.locked -= marginToRelease
-    USDBalance!.available += marginToRelease
-
     order.status = "cancelled"
+    reconcileUserMargin(userId)
 
     return order
 }
