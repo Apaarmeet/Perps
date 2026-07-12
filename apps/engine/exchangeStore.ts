@@ -1,7 +1,7 @@
 
 export type orderType = "market" | "limit"
 export type Side = "LONG" | "SHORT"
-export type OrderStatus = "FILLED" | "PARTIALLY_FILLED" | "OPEN" | "CANCELLED"
+export type OrderStatus = "filled" | "partially_filled" | "open" | "cancelled"
 
 
 
@@ -59,7 +59,7 @@ export interface createOrderInput  {
 
 export interface cancelOrderInput {
     userId: string,
-    orerId: string
+    orderId: string
 }
 export interface onrampInput {
     userId : string,

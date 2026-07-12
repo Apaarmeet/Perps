@@ -3,3 +3,6 @@
 
 # code-style
 - Data shapes sent over streams should match the Prisma schema model fields directly; avoid adding extra metadata or wrapper abstractions. Confidence: 0.65
+
+# frontend
+- Frontend design should be inspired by Backpack Exchange, not Apple aesthetic. Confidence: 0.65

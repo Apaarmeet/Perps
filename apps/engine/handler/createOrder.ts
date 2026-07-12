@@ -30,6 +30,7 @@ export function handleCreateOrder(payload: createOrderInput){
         let marginToBeLocked : number  = 0
 
         if(type ==="market"){
+            if(!bestAsk) throw new Error("No liquidity available")
             marginToBeLocked = (((bestAsk * qty) + ((sllipage/100) * (bestAsk * qty)) ) / leverage )
         }
 
@@ -87,6 +88,11 @@ export function handleCreateOrder(payload: createOrderInput){
                     if(makerOrder){
                         makerOrder.filledQty += qtyToBeFilled;
                         makerOrder.fills.push(fill)
+                        if(makerOrder.qty === makerOrder.filledQty){
+                          makerOrder.status = "filled"   
+                        } else {
+                            makerOrder.status = "partially_filled"
+                        } 
                     } 
 
                     if(restingOrder.filledQty === restingOrder.qty){
@@ -113,7 +119,7 @@ export function handleCreateOrder(payload: createOrderInput){
                         symbol,
                         filledQty,
                         qty,
-                        status: filledQty > 0 ? "PARTIALLY_FILLED" : "OPEN" ,
+                        status: filledQty > 0 ? "partially_filled" : "open" ,
                         price : price,
                         leverage,
                         createdAt
@@ -134,7 +140,7 @@ export function handleCreateOrder(payload: createOrderInput){
                     symbol,
                     leverage,
                     margin: ((price! * qty) / leverage),
-                    status: remainingQty > 0 ? "PARTIALLY_FILLED" : "FILLED",
+                    status: remainingQty > 0 ? "partially_filled" : "filled",
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })
@@ -155,7 +161,7 @@ export function handleCreateOrder(payload: createOrderInput){
                     symbol,
                     leverage,
                     margin: marginToBeLocked,
-                    status: remainingQty > 0 ? "PARTIALLY_FILLED" : "FILLED",
+                    status: remainingQty > 0 ? "partially_filled" : "filled",
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })
@@ -176,6 +182,7 @@ export function handleCreateOrder(payload: createOrderInput){
             let marginToBeLocked : number = 0
 
             if(type === "market"){
+                if(!bestBid) throw new Error("no liquidity available")
                 marginToBeLocked = (((bestBid * qty) + ((sllipage/100) * (bestBid * qty)) ) / leverage )
             }
 
@@ -234,6 +241,11 @@ export function handleCreateOrder(payload: createOrderInput){
                     if(makerOrder){
                         makerOrder.filledQty += qtyToBeFilled;
                         makerOrder.fills.push(fill)
+                        if(makerOrder.qty === makerOrder.filledQty){
+                          makerOrder.status = "filled"   
+                        } else {
+                            makerOrder.status = "partially_filled"
+                        } 
                     } 
                     if(restingOrder.filledQty === restingOrder.qty){
                         const updatedOrderBook = orders?.filter((f)=> f.orderId != restingOrder.orderId)
@@ -261,7 +273,7 @@ export function handleCreateOrder(payload: createOrderInput){
                         symbol,
                         filledQty,
                         qty,
-                        status: filledQty > 0 ? "PARTIALLY_FILLED" : "OPEN" ,
+                        status: filledQty > 0 ? "partially_filled" : "open" ,
                         price : price,
                         leverage,
                         createdAt
@@ -282,7 +294,7 @@ export function handleCreateOrder(payload: createOrderInput){
                     symbol,
                     leverage,
                     margin: ((price! * qty) / leverage),
-                    status: remainingQty > 0 ? "PARTIALLY_FILLED" : "FILLED",
+                    status: remainingQty > 0 ? "partially_filled" : "filled",
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })
@@ -302,7 +314,7 @@ export function handleCreateOrder(payload: createOrderInput){
                     symbol,
                     leverage,
                     margin: marginToBeLocked,
-                    status: remainingQty > 0 ? "PARTIALLY_FILLED" : "FILLED",
+                    status: remainingQty > 0 ? "partially_filled" : "filled",
                     fills: FILLS.filter((f)=> f.takerOrderId === orderId),
                     createdAt
                 })

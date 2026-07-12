@@ -23,6 +23,7 @@ export async function consumeEngineRequests(){
                         type: type,
                         payload: JSON.parse(payload)
                     })
+                    console.log(result)
 
                     await writeclient.xAdd(responseStream as string, "*", {
                         correlationId: correlationId as string,

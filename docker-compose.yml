@@ -97,12 +97,9 @@ services:
 
   web:
     build: .
-    command: sh -c "cd apps/web && bunx next build && bunx next start --port 3001"
+    command: sh -c "cd apps/web && bunx next dev --port 3001"
     ports:
       - "3001:3001"
-    depends_on:
-      - server
-      - wss-connections
     restart: unless-stopped
 
 volumes:

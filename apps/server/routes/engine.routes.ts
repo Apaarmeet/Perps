@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { cancelOrder, createorder, onRamp, openOrdersHandler, ordersHandler, fillsHandler, getUserBalance, getPositions, getDepth } from "../controllers/engine.controller";
+import { middleware } from "../middleware";
 
 export const engineRouter = Router()
+
+engineRouter.use(middleware)
+
 
 engineRouter.post("/onRamp",onRamp)
 engineRouter.post("/order", createorder)

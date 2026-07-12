@@ -16,9 +16,10 @@ export async function createorder(req: Request, res: Response) {
     return res.status(400).json({ error: "Invalid Input" });
   }
   const data = verify.data
+  console.log(data)
 
   try {
-    const response = await loopback("create-order", { userId, data });
+    const response = await loopback("create-order", { userId, ...data });
     res.status(200).json(response);
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
@@ -30,6 +31,7 @@ export async function getUserBalance(req: Request, res:Response){
 
     try{
         const response = await loopback("get-user-balance", {userId})
+        console.log(response)
         res.status(200).json(response)
     } catch (err){
         console.error("userbalance error", {

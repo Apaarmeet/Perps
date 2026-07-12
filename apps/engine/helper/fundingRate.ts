@@ -11,7 +11,7 @@ function applyFunding(symbol: string, fundingRate: number) {
         const payment = notional * fundingRate;
         const userBalance = BALANCES.get(userId);
 
-        if (!userBalance || !userBalance[symbol]) continue;
+        if (!userBalance || !userBalance["USD"]) continue;
         // LONG pays when fundingRate > 0, receives when < 0
         // SHORT receives when fundingRate > 0, pays when < 0
         if (position.side === "LONG" && fundingRate > 0) {
@@ -40,7 +40,6 @@ export function calculateAndApplyFunding(symbol: string) {
     const orderBook = ORDERBOOK.get(symbol);
     if (!orderBook) return;
 
-    // mark price = fallback to index
     let markPrice = indexPrice;
     const bestBid = orderBook.bids.size > 0 ? Math.max(...orderBook.bids.keys()) : null;
     const bestAsk = orderBook.asks.size > 0 ? Math.min(...orderBook.asks.keys()) : null;
