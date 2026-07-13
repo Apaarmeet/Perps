@@ -35,10 +35,10 @@ function DepthRow({
       <span className={`relative z-10 flex-1 pl-2 truncate text-sm font-mono tabular-nums ${textColor}`}>
         {formatPrice(level.price)}
       </span>
-      <span className="relative z-10 w-[64px] text-right pr-2 text-sm font-mono tabular-nums text-text-primary">
+      <span className="relative z-10 w-[88px] text-right pr-3 text-sm font-mono tabular-nums text-text-primary">
         {formatSize(level.size)}
       </span>
-      <span className="relative z-10 w-[60px] text-right pr-2 text-sm font-mono tabular-nums text-text-secondary">
+      <span className="relative z-10 w-[88px] text-right pr-2 text-sm font-mono tabular-nums text-text-secondary">
         {formatSize(level.total)}
       </span>
     </div>
@@ -68,8 +68,8 @@ export function OrderbookPanel({ onPriceClick }: OrderbookPanelProps) {
     <div className="flex flex-col h-full bg-bg-secondary select-none">
       <div className="flex items-center px-2 py-1.5 border-b border-border-default">
         <span className="flex-1 text-xs text-text-muted text-left font-medium uppercase tracking-wider">Price</span>
-        <span className="w-[64px] text-xs text-text-muted text-right font-medium uppercase tracking-wider">Size</span>
-        <span className="w-[60px] text-xs text-text-muted text-right font-medium uppercase tracking-wider">Total</span>
+        <span className="w-[88px] text-xs text-text-muted text-right pr-3 font-medium uppercase tracking-wider">Size</span>
+        <span className="w-[88px] text-xs text-text-muted text-right font-medium uppercase tracking-wider">Total</span>
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col justify-end">

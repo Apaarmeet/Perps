@@ -3,6 +3,7 @@ import { cancelOrderSchema, createOrderSchema, onrampSchema } from "../validator
 import { loopback } from "../handler/loopback";
 import { getOpenOrders } from "../handler/getOpenOrders";
 import { getOrders } from "../handler/getOrders";
+import { getAllOrders } from "../handler/getAllOrders";
 import { getFills } from "../handler/getFills";
 
 
@@ -174,6 +175,17 @@ export async function candleHistoryHandler(req: Request, res: Response) {
       take: Math.min(limit, 500),
     });
     res.status(200).json(candles);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+}
+
+export async function allOrdersHandler(req: Request, res: Response) {
+  const userId = req.userId;
+
+  try {
+    const orders = await getAllOrders(userId);
+    res.status(200).json(orders);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

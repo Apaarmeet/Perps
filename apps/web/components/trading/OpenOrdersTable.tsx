@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { api } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useOrders } from "@/hooks/useOrders";
@@ -58,6 +58,11 @@ export function OpenOrdersTable() {
   const { openOrders, isLoading } = useOrders();
   const [cancelling, setCancelling] = useState<string | null>(null);
 
+  const activeOrders = useMemo(
+    () => openOrders.filter((o) => o.Status === "open" || o.Status === "partially_filled"),
+    [openOrders],
+  );
+
   async function handleCancel(orderId: string) {
     setCancelling(orderId);
     try {
@@ -91,14 +96,14 @@ export function OpenOrdersTable() {
                 <Spinner />
               </td>
             </tr>
-          ) : openOrders.length === 0 ? (
+          ) : activeOrders.length === 0 ? (
             <tr>
               <td colSpan={7} className="py-10 text-center text-sm text-text-muted">
                 No open orders
               </td>
             </tr>
           ) : (
-            openOrders.map((order) => (
+            activeOrders.map((order) => (
               <OrderRow
                 key={order.orderId}
                 order={order}

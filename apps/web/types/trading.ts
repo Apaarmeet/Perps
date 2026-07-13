@@ -71,6 +71,7 @@ export interface Fill {
   qty: number;
   buyorderId: string;
   sellOrderId: string;
+  makerOrderId: string;
   createdAt: string;
 }
 

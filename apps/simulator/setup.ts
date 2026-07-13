@@ -1,7 +1,7 @@
 import { API_BASE } from "./constants";
 import type { CreateOrderPayload, AuthResponse } from "./types";
 
-interface Trader {
+export interface Trader {
   token: string;
   userId: string;
   email: string;

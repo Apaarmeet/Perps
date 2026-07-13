@@ -45,17 +45,24 @@ function mapEngineOrder(e: any): Order {
 }
 
 function mapEngineFills(fills: any[]): Fill[] {
-  return fills.map(f => ({
-    fillId: f.fillId || f.fillId || crypto.randomUUID(),
-    symbol: f.symbol,
-    Price: f.price ?? f.Price ?? 0,
-    qty: f.qty,
-    buyorderId: f.makerOrderid ?? f.buyorderId ?? "",
-    sellOrderId: f.takerOrderId ?? f.sellOrderId ?? "",
-    createdAt: typeof f.createdAt === "number"
-      ? new Date(f.createdAt).toISOString()
-      : f.createdAt ?? new Date().toISOString(),
-  }));
+  return fills.map(f => {
+    const makerOrderId = f.makerOrderid ?? (
+      f.buyOrder?.side === "buy" ? f.sellOrderId : f.buyorderId
+    ) ?? "";
+
+    return {
+      fillId: f.fillId || crypto.randomUUID(),
+      symbol: f.symbol,
+      Price: f.price ?? f.Price ?? 0,
+      qty: f.qty,
+      buyorderId: f.makerOrderid ?? f.buyorderId ?? "",
+      sellOrderId: f.takerOrderId ?? f.sellOrderId ?? "",
+      makerOrderId,
+      createdAt: typeof f.createdAt === "number"
+        ? new Date(f.createdAt).toISOString()
+        : f.createdAt ?? new Date().toISOString(),
+    };
+  });
 }
 
 export function useOrders() {
@@ -72,14 +79,14 @@ export function useOrders() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [open, all, fls] = await Promise.all([
+      const [open, history, fls] = await Promise.all([
         api.get<Order[]>(`/orders/open/${marketRef.current}`),
-        api.get<Order[]>(`/orders/${marketRef.current}`),
+        api.get<Order[]>(`/orders/all`),
         api.get<Fill[]>(`/fills`),
       ]);
       setOpenOrders((open || []).map(mapEngineOrder));
-      setAllOrders((all || []).map(mapEngineOrder));
-      setFills(fls || []);
+      setAllOrders((history || []).map(mapEngineOrder));
+      setFills(fls?.length ? mapEngineFills(fls) : []);
     } catch {
       // silent fail
     } finally {

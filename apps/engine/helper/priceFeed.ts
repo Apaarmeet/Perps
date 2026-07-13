@@ -32,7 +32,7 @@ export async function startPriceFeed() {
                 }
 
                 const lastFill = FILLS.findLast(f => f.symbol === parsedSymbol);
-                const perpPrice = lastFill?.price ?? null;
+                const perpPrice = lastFill?.price;
 
                 if (lastFill) {
                     const { closed, current } = recordTradePrice(parsedSymbol, lastFill.price, now);

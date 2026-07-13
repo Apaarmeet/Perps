@@ -1,11 +1,12 @@
 "use client";
 
 import { useOrders } from "@/hooks/useOrders";
+import { useMarket } from "@/context/MarketContext";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { Tabs } from "@/components/ui/Tabs";
 import { formatPrice, formatSize } from "@/lib/format";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Fill } from "@/types/trading";
 
 function statusVariant(status: string): "green" | "red" | "neutral" {
@@ -15,8 +16,14 @@ function statusVariant(status: string): "green" | "red" | "neutral" {
 }
 
 export function OrderHistoryTable() {
+  const { market } = useMarket();
   const { allOrders, fills, isLoading } = useOrders();
   const [tab, setTab] = useState("orders");
+
+  const marketOrders = useMemo(
+    () => allOrders.filter((o) => o.symbol === market && o.Status !== "open" && o.Status !== "partially_filled"),
+    [allOrders, market],
+  );
 
   return (
     <div>
@@ -45,14 +52,14 @@ export function OrderHistoryTable() {
               </tr>
             </thead>
             <tbody>
-              {allOrders.length === 0 ? (
+              {marketOrders.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-10 text-center text-sm text-text-muted">
                     No orders
                   </td>
                 </tr>
               ) : (
-                allOrders.map((order) => (
+                marketOrders.map((order) => (
                   <tr
                     key={order.orderId}
                     className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors"
@@ -84,13 +91,14 @@ export function OrderHistoryTable() {
               <tr className="border-b border-border-default">
                 <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Price</th>
                 <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Qty</th>
+                <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Maker Order</th>
                 <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Time</th>
               </tr>
             </thead>
             <tbody>
               {fills.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-10 text-center text-sm text-text-muted">
+                  <td colSpan={4} className="py-10 text-center text-sm text-text-muted">
                     No fills
                   </td>
                 </tr>
@@ -105,6 +113,9 @@ export function OrderHistoryTable() {
                     </td>
                     <td className="px-3 py-2 text-sm font-mono tabular-nums text-text-primary text-right">
                       {formatSize(fill.qty)}
+                    </td>
+                    <td className="px-3 py-2 text-xs font-mono tabular-nums text-text-muted text-right">
+                      {fill.makerOrderId ? fill.makerOrderId.slice(0, 8) + "…" : "—"}
                     </td>
                     <td className="px-3 py-2 text-sm text-text-muted text-right font-mono tabular-nums">
                       {new Date(fill.createdAt).toLocaleTimeString()}
