@@ -34,16 +34,23 @@ export function BalanceBar() {
 
   return (
     <>
-      <div className="flex items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-text-muted">Equity</span>
-          <span className="font-mono font-medium text-text-primary tabular-nums">
-            {isLoading ? "--" : formatUSD(total)}
-          </span>
-        </div>
-        <Button variant="ghost" className="text-xs !px-2 !py-1" onClick={() => setModalOpen(true)}>
+      <div className="flex items-center gap-1.5 lg:gap-3 text-xs">
+        <span className="hidden lg:inline text-text-muted">Free</span>
+        <span className="font-mono font-medium text-green tabular-nums">
+          {isLoading ? "--" : formatUSD(available)}
+        </span>
+        <span className="hidden lg:inline text-text-muted">Locked</span>
+        <span className="hidden lg:inline font-mono text-text-secondary tabular-nums">
+          {isLoading ? "--" : formatUSD(locked)}
+        </span>
+        <div className="hidden lg:block w-px h-4 bg-border-strong" />
+        <span className="hidden lg:inline text-text-muted">Equity</span>
+        <span className="font-mono font-semibold text-text-primary tabular-nums">
+          {isLoading ? "--" : formatUSD(total)}
+        </span>
+        <Button variant="ghost" className="text-xs !px-1.5 !py-1" onClick={() => setModalOpen(true)}>
           <Plus className="w-3 h-3" />
-          Deposit
+          <span className="hidden sm:inline">Deposit</span>
         </Button>
       </div>
 

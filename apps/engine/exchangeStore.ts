@@ -54,7 +54,7 @@ export interface createOrderInput  {
     price: number | null,
     qty: number,
     leverage: number,
-    sllipage: number
+    slippage: number
 }
 
 export interface cancelOrderInput {

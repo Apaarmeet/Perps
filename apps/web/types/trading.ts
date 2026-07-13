@@ -35,6 +35,7 @@ export interface OrderbookData {
   bids: DepthLevel[];
   asks: DepthLevel[];
   spread: number;
+  spreadPct: number | null;
   maxTotal: number;
 }
 
@@ -96,7 +97,7 @@ export interface CreateOrderPayload {
   price: number | null;
   qty: number;
   leverage: number;
-  sllipage: number;
+  slippage: number;
 }
 
 export interface WsMessage {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { useOrders } from "@/hooks/useOrders";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -18,24 +19,24 @@ function statusVariant(status: string): "green" | "red" | "neutral" {
 
 function OrderRow({ order, onCancel }: { order: Order; onCancel: () => void }) {
   return (
-    <tr className="border-b border-border-default hover:bg-bg-hover transition-colors">
-      <td className="px-3 py-2 text-xs">
+    <tr className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors">
+      <td className="px-3 py-2">
         <Badge
           label={order.side === "buy" ? "LONG" : "SHORT"}
           variant={order.side === "buy" ? "green" : "red"}
         />
       </td>
-      <td className="px-3 py-2 text-xs text-text-secondary">{order.type}</td>
-      <td className="px-3 py-2 text-xs font-mono tabular-nums text-text-primary text-right">
+      <td className="px-3 py-2 text-sm text-text-secondary">{order.type}</td>
+      <td className="px-3 py-2 text-sm font-mono tabular-nums text-text-primary text-right">
         {order.price !== null ? formatPrice(order.price) : "Market"}
       </td>
-      <td className="px-3 py-2 text-xs font-mono tabular-nums text-text-primary text-right">
+      <td className="px-3 py-2 text-sm font-mono tabular-nums text-text-primary text-right">
         {formatSize(order.qty)}
       </td>
-      <td className="px-3 py-2 text-xs font-mono tabular-nums text-text-primary text-right">
+      <td className="px-3 py-2 text-sm font-mono tabular-nums text-text-primary text-right">
         {formatSize(order.filledQty)}
       </td>
-      <td className="px-3 py-2 text-xs">
+      <td className="px-3 py-2">
         <Badge label={order.Status} variant={statusVariant(order.Status)} />
       </td>
       <td className="px-3 py-2 text-right">
@@ -54,16 +55,16 @@ function OrderRow({ order, onCancel }: { order: Order; onCancel: () => void }) {
 }
 
 export function OpenOrdersTable() {
-  const { openOrders, isLoading, refetch } = useOrders();
+  const { openOrders, isLoading } = useOrders();
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   async function handleCancel(orderId: string) {
     setCancelling(orderId);
     try {
       await api.delete("/order", { orderId });
-      refetch();
-    } catch {
-      // ignore
+      toast.success("Order cancelled");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cancel failed");
     } finally {
       setCancelling(null);
     }
@@ -74,25 +75,25 @@ export function OpenOrdersTable() {
       <table className="w-full">
         <thead>
           <tr className="border-b border-border-default">
-            <th className="px-3 py-2 text-[10px] text-text-muted text-left">Side</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-left">Type</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-right">Price</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-right">Qty</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-right">Filled</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-left">Status</th>
-            <th className="px-3 py-2 text-[10px] text-text-muted text-right"></th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-left">Side</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-left">Type</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Price</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Qty</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right">Filled</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-left">Status</th>
+            <th className="px-3 py-2 text-xs text-text-muted font-medium uppercase tracking-wider text-right"></th>
           </tr>
         </thead>
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan={7} className="py-8 text-center">
+              <td colSpan={7} className="py-10 text-center">
                 <Spinner />
               </td>
             </tr>
           ) : openOrders.length === 0 ? (
             <tr>
-              <td colSpan={7} className="py-8 text-center text-xs text-text-muted">
+              <td colSpan={7} className="py-10 text-center text-sm text-text-muted">
                 No open orders
               </td>
             </tr>

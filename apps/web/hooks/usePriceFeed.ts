@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useWebSocket } from "./useWebSocket";
 import { useMarket } from "@/context/MarketContext";
 
 interface PriceState {
   perpPrice: number | null;
   indexPrice: number | null;
-  prevPerp: number | null;
   direction: "up" | "down" | null;
+  change24h: number | null;
 }
 
 export function usePriceFeed() {
@@ -16,9 +16,22 @@ export function usePriceFeed() {
   const [state, setState] = useState<PriceState>({
     perpPrice: null,
     indexPrice: null,
-    prevPerp: null,
     direction: null,
+    change24h: null,
   });
+  const basePriceRef = useRef<number | null>(null);
+  const prevPerpRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    basePriceRef.current = null;
+    prevPerpRef.current = null;
+    setState({
+      perpPrice: null,
+      indexPrice: null,
+      direction: null,
+      change24h: null,
+    });
+  }, [market]);
 
   const handleRawPrice = useCallback(
     (data: unknown) => {
@@ -36,33 +49,38 @@ export function usePriceFeed() {
     [market]
   );
 
-  const handlePriceUpdate = useCallback(
+  const handleDepth = useCallback(
     (data: unknown) => {
-      const update = data as { symbol: string; perpPrice: number | null; indexPrice: number };
-      if (!update || update.symbol !== market) return;
+      const depth = data as { symbol: string; asks: [number, number][]; bids: [number, number][] };
+      if (!depth || depth.symbol !== market) return;
 
-      const perp = update.perpPrice;
-      if (perp == null || isNaN(perp)) return; // skip if no perp price yet (only index)
+      const bestBid = depth.bids?.[0]?.[0];
+      const bestAsk = depth.asks?.[0]?.[0];
+      if (!bestBid || !bestAsk) return;
 
-      setState((prev) => ({
-        perpPrice: perp,
-        indexPrice: update.indexPrice ?? prev.indexPrice,
-        prevPerp: prev.perpPrice,
-        direction:
-          prev.perpPrice !== null
-            ? perp > prev.perpPrice
-              ? "up"
-              : perp < prev.perpPrice
-              ? "down"
-              : prev.direction
-            : prev.direction,
+      const mid = (bestBid + bestAsk) / 2;
+      const prev = prevPerpRef.current;
+      prevPerpRef.current = mid;
+
+      if (basePriceRef.current === null) {
+        basePriceRef.current = mid;
+      }
+
+      setState((s) => ({
+        ...s,
+        perpPrice: mid,
+        direction: prev !== null ? (mid > prev ? "up" : mid < prev ? "down" : s.direction) : s.direction,
+        change24h:
+          basePriceRef.current !== null
+            ? ((mid - basePriceRef.current) / basePriceRef.current) * 100
+            : null,
       }));
     },
     [market]
   );
 
   useWebSocket("price", handleRawPrice);
-  useWebSocket("price-update", handlePriceUpdate);
+  useWebSocket("depth", handleDepth);
 
   return state;
 }

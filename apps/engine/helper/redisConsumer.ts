@@ -8,7 +8,7 @@ const readClient = await getRedisClient()
 const writeclient = await getRedisClient()
 let lastId = "$"
 
-function publishDepthSnapshot(symbol: string) {
+async function publishDepthSnapshot(symbol: string) {
     const orderBook = ORDERBOOK.get(symbol);
     if (!orderBook) return;
 
@@ -28,7 +28,7 @@ function publishDepthSnapshot(symbol: string) {
         .sort((a, b) => b[0] - a[0])
         .slice(0, 20);
 
-    writeclient.xAdd("engine-dataStream", "*", {
+    await writeclient.xAdd("engine-dataStream", "*", {
         commandType: "depth",
         data: JSON.stringify({ symbol, asks, bids }),
     });
@@ -43,7 +43,7 @@ export async function consumeEngineRequests(){
 
         for(const stream of streams ?? []){
             for(const msg of stream.messages){
-                const {type, correlationId, responseStream, payload} = msg.message;
+                const {type, correlationId, responseQueue, payload} = msg.message;
                 lastId = msg.id
 
                 try{
@@ -54,7 +54,7 @@ export async function consumeEngineRequests(){
                     })
                     console.log(result)
 
-                    await writeclient.xAdd(responseStream as string, "*", {
+                    await writeclient.xAdd(responseQueue as string, "*", {
                         correlationId: correlationId as string,
                         ok: "true",
                         data: JSON.stringify(result)
@@ -73,7 +73,7 @@ export async function consumeEngineRequests(){
                     if (type === "create-order" || type === "cancel-order") {
                         const parsedPayload = JSON.parse(payload);
                         const symbol = (result as any)?.order?.symbol ?? parsedPayload.symbol ?? null;
-                        if (symbol) publishDepthSnapshot(symbol);
+                        if (symbol) await publishDepthSnapshot(symbol);
                     }
 
                     if (type === "create-order") {
@@ -112,7 +112,7 @@ export async function consumeEngineRequests(){
                         }
                     }
                 } catch (err) {
-                    await writeclient.xAdd(responseStream as string , "*", {
+                    await writeclient.xAdd(responseQueue as string , "*", {
                         correlationId: correlationId as string,
                         ok: "false",
                         error: String((err as Error).message)

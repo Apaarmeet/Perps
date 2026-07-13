@@ -14,23 +14,25 @@ import {
   ColorType,
 } from "lightweight-charts";
 import { useCandles } from "@/hooks/useCandles";
-import { usePriceFeed } from "@/hooks/usePriceFeed";
 import { Tabs } from "@/components/ui/Tabs";
 import { Spinner } from "@/components/ui/Spinner";
 import { INTERVALS } from "@/lib/constants";
 import type { CandleInterval } from "@/types/trading";
 
-const BG_COLOR = "#111318";
-const TEXT_COLOR = "#555a64";
-const GRID_COLOR = "#1e2028";
-const GREEN = "#00d4a8";
-const RED = "#f5465d";
+const BG_COLOR = "#0f1116";
+const TEXT_COLOR = "#4b5162";
+const GRID_COLOR = "#1c1f28";
+const GREEN = "#02c278";
+const RED = "#e8425c";
+
+const INTERVAL_TABS = INTERVALS.map((i) => ({ id: i, label: i }));
 
 export function ChartPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const isInitialLoad = useRef(true);
 
   const { candles, interval, setInterval, isLoading } = useCandles();
 
@@ -51,6 +53,7 @@ export function ChartPanel() {
       },
       rightPriceScale: {
         borderColor: GRID_COLOR,
+        autoScale: true,
       },
       timeScale: {
         borderColor: GRID_COLOR,
@@ -71,36 +74,41 @@ export function ChartPanel() {
     });
 
     const volumeSeries = chart.addSeries(HistogramSeries, {
-      color: "#4c94ff22",
       priceFormat: { type: "volume" },
       priceScaleId: "",
     });
     chart.priceScale("").applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 },
+      scaleMargins: { top: 0.85, bottom: 0 },
     });
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
-    const handleResize = () => {
-      if (containerRef.current) {
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
         chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
         });
       }
-    };
-    window.addEventListener("resize", handleResize);
+    });
+    ro.observe(containerRef.current);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
+      ro.disconnect();
       chart.remove();
     };
   }, []);
 
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+
+    if (candles.length === 0) {
+      candleSeriesRef.current.setData([]);
+      volumeSeriesRef.current.setData([]);
+      return;
+    }
 
     const candleData: CandlestickData[] = candles.map((c) => ({
       time: c.time as Time,
@@ -112,30 +120,36 @@ export function ChartPanel() {
 
     const volumeData: HistogramData[] = candles.map((c) => ({
       time: c.time as Time,
-      value: c.close > c.open ? 100 : 50,
+      value: Math.abs(c.close - c.open) * (c.close + c.open) / 2,
       color: c.close >= c.open ? `${GREEN}44` : `${RED}44`,
     }));
 
     candleSeriesRef.current.setData(candleData);
     volumeSeriesRef.current.setData(volumeData);
-    chartRef.current?.timeScale().fitContent();
+
+    if (isInitialLoad.current) {
+      chartRef.current?.timeScale().fitContent();
+      isInitialLoad.current = false;
+    }
   }, [candles]);
 
-  const intervals = INTERVALS.map((i) => ({ id: i, label: i }));
+  useEffect(() => {
+    isInitialLoad.current = true;
+  }, [interval]);
 
   return (
     <div className="flex flex-col h-full bg-bg-secondary border border-border-default">
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border-default">
-        <span className="text-xs text-text-secondary">Chart</span>
+      <div className="flex items-center justify-between px-3 py-1 border-b border-border-default">
+        <span className="text-xs text-text-secondary font-medium">Chart</span>
         <Tabs
-          tabs={intervals}
+          tabs={INTERVAL_TABS}
           active={interval}
           onChange={(id) => setInterval(id as CandleInterval)}
         />
       </div>
       <div className="flex-1 relative">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-bg-secondary/50">
             <Spinner />
           </div>
         )}

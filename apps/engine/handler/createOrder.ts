@@ -1,18 +1,18 @@
-import { BALANCES, FILLS, ORDERBOOK, ORDERS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
+import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
 import { reconcileUserMargin } from "../helper/margin";
 import { applyFillToPosition } from "../helper/updatePosition";
 
-function validateOrder({ type, price, qty, leverage, sllipage }: createOrderInput) {
+function validateOrder({ type, price, qty, leverage, slippage }: createOrderInput) {
     if (qty <= 0) throw new Error("Quantity must be positive");
     if ( leverage <= 0) throw new Error("Leverage must be positive");
-    if ( sllipage < 0) throw new Error("Slippage must be non-negative");
+    if ( slippage < 0) throw new Error("Slippage must be non-negative");
     if (type === "limit" && ( price === null || price <= 0)) {
         throw new Error("A positive price is required for limit orders");
     }
 }
 
 export function handleCreateOrder(payload: createOrderInput) {
-    const { userId, type, side, symbol, price, qty, leverage, sllipage } = payload;
+    const { userId, type, side, symbol, price, qty, leverage, slippage } = payload;
     validateOrder(payload);
 
     const usd = BALANCES.get(userId)?.USD;
@@ -24,16 +24,29 @@ export function handleCreateOrder(payload: createOrderInput) {
     const oppositeLevels = side === "LONG" ? orderBook.asks : orderBook.bids;
     const prices = [...oppositeLevels.keys()].sort(side === "LONG" ? (a, b) => a - b : (a, b) => b - a);
     const bestPrice = prices[0];
+
     if (type === "market" && bestPrice === undefined) throw new Error("No liquidity available");
 
-    const reservePrice = type === "limit" ? price! : bestPrice! * (1 + (sllipage / 100));
+    const reservePrice = type === "limit" ? price! : bestPrice! * (1 + (slippage / 100));
     const marginToReserve = (reservePrice * qty) / leverage;
-    if ( usd.available < marginToReserve) {
-        throw new Error("Insufficient balance");
+
+    const userPositions = POSITIONS.get(userId);
+    const existingPosition = userPositions?.get(symbol);
+    const isClosing = existingPosition && existingPosition.side !== side && existingPosition.qty > 0;
+
+    let effectiveMarginNeeded = marginToReserve;
+    if (isClosing) {
+      const closingQty = Math.min(qty, existingPosition.qty);
+      const existingMarginForClosing = (closingQty / existingPosition.qty) * existingPosition.margin;
+      effectiveMarginNeeded = Math.max(0, marginToReserve - existingMarginForClosing);
     }
 
-    usd.available -= marginToReserve;
-    usd.locked += marginToReserve;
+    if (usd.available < effectiveMarginNeeded) {
+      throw new Error("Insufficient balance");
+    }
+
+    usd.available -= effectiveMarginNeeded;
+    usd.locked += effectiveMarginNeeded;
 
     const orderId = crypto.randomUUID();
     const createdAt = Date.now();
@@ -92,6 +105,21 @@ export function handleCreateOrder(payload: createOrderInput) {
                 else oppositeLevels.set(levelPrice, remainingAtLevel);
             }
         }
+    }
+
+    // Market orders with zero fills: release margin, throw error
+    if (type === "market" && filledQty === 0) {
+        usd.available += effectiveMarginNeeded;
+        usd.locked -= effectiveMarginNeeded;
+        reconcileUserMargin(userId);
+        throw new Error("Market order could not be filled — no matching orders on the opposite side");
+    }
+
+    // Market orders with partial fills: keep what filled, release unused margin
+    if (type === "market" && remainingQty > 0) {
+        const unusedMargin = (reservePrice * remainingQty) / leverage;
+        usd.available += unusedMargin;
+        usd.locked -= unusedMargin;
     }
 
     const status = remainingQty === 0 ? "filled" : filledQty > 0 ? "partially_filled" : "open";

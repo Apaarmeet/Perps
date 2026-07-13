@@ -15,30 +15,35 @@ interface WsDepth {
 }
 
 function buildOrderbook(raw: WsDepth): OrderbookData {
-  let bidTotal = 0;
-  const bids: DepthLevel[] = (raw.bids || [])
+  const bidLevels = (raw.bids || [])
     .filter(([, qty]) => qty > 0)
-    .map(([price, qty]) => {
-      bidTotal += qty;
-      return { price, size: qty, total: bidTotal };
-    });
+    .sort((a, b) => b[0] - a[0]); // descending: best bid first
+
+  const askLevels = (raw.asks || [])
+    .filter(([, qty]) => qty > 0)
+    .sort((a, b) => a[0] - b[0]); // ascending: best ask first
+
+  // cumulative totals from mid outward
+  let bidTotal = 0;
+  const bids: DepthLevel[] = bidLevels.map(([price, qty]) => {
+    bidTotal += qty;
+    return { price, size: qty, total: bidTotal };
+  });
 
   let askTotal = 0;
-  const asks: DepthLevel[] = (raw.asks || [])
-    .filter(([, qty]) => qty > 0)
-    .map(([price, qty]) => {
-      askTotal += qty;
-      return { price, size: qty, total: askTotal };
-    });
+  const asks: DepthLevel[] = askLevels.map(([price, qty]) => {
+    askTotal += qty;
+    return { price, size: qty, total: askTotal };
+  });
 
-  const spread =
-    asks.length > 0 && bids.length > 0
-      ? asks[0].price - bids[0].price
-      : 0;
-
+  const bestBid = bidLevels[0]?.[0] ?? 0;
+  const bestAsk = askLevels[0]?.[0] ?? 0;
+  const spread = bestBid && bestAsk ? bestAsk - bestBid : 0;
+  const midPrice = spread > 0 ? (bestBid + bestAsk) / 2 : 0;
+  const spreadPct = midPrice > 0 ? (spread / midPrice) * 100 : null;
   const maxTotal = Math.max(bidTotal, askTotal, 1);
 
-  return { bids, asks, spread, maxTotal };
+  return { bids, asks, spread, spreadPct, maxTotal };
 }
 
 export function useOrderbook() {
@@ -47,6 +52,7 @@ export function useOrderbook() {
     bids: [],
     asks: [],
     spread: 0,
+    spreadPct: null,
     maxTotal: 1,
   });
   const marketRef = useRef(market);

@@ -1,19 +1,7 @@
-import { prisma } from "@repo/db";
+import { loopback } from "../handler/loopback";
 
 export async function getFills(userId: string) {
-  const fills = await prisma.fill.findMany({
-    where: {
-      OR: [
-        { buyOrder: { userId } },
-        { sellOrder: { userId } },
-      ],
-    },
-    include: {
-      buyOrder: { select: { orderId: true, side: true } },
-      sellOrder: { select: { orderId: true, side: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return fills;
+  const result = await loopback("get-fills", { userId });
+  const data = result as { fills?: any[] };
+  return data?.fills ?? [];
 }

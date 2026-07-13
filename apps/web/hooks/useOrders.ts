@@ -26,31 +26,35 @@ interface EngineCreateResult {
   fills: Fill[];
 }
 
-function mapEngineOrder(e: EngineOrder): Order {
+function mapEngineOrder(e: any): Order {
   return {
-    orderId: e.orderid,
+    orderId: e.orderid || e.orderId || "",
     userId: e.userId,
     symbol: e.symbol,
     side: e.side === "LONG" ? "buy" : "sell",
     type: e.type,
-    price: e.price,
+    price: e.price ?? null,
     qty: e.qty,
-    filledQty: e.filledQty,
-    margin: e.margin,
-    Status: e.status as Order["Status"],
-    createdAt: new Date(e.createdAt).toISOString(),
+    filledQty: e.filledQty ?? e.filledQty ?? 0,
+    margin: e.margin ?? 0,
+    Status: (e.status || e.Status) as Order["Status"],
+    createdAt: typeof e.createdAt === "number"
+      ? new Date(e.createdAt).toISOString()
+      : e.createdAt ?? new Date().toISOString(),
   };
 }
 
-function mapEnginFills(fills: any[]): Fill[] {
+function mapEngineFills(fills: any[]): Fill[] {
   return fills.map(f => ({
-    fillId: f.fillId,
+    fillId: f.fillId || f.fillId || crypto.randomUUID(),
     symbol: f.symbol,
-    Price: f.price,
+    Price: f.price ?? f.Price ?? 0,
     qty: f.qty,
     buyorderId: f.makerOrderid ?? f.buyorderId ?? "",
     sellOrderId: f.takerOrderId ?? f.sellOrderId ?? "",
-    createdAt: new Date(f.createdAt).toISOString(),
+    createdAt: typeof f.createdAt === "number"
+      ? new Date(f.createdAt).toISOString()
+      : f.createdAt ?? new Date().toISOString(),
   }));
 }
 
@@ -73,13 +77,11 @@ export function useOrders() {
         api.get<Order[]>(`/orders/${marketRef.current}`),
         api.get<Fill[]>(`/fills`),
       ]);
-      setOpenOrders(open || []);
-      setAllOrders(all || []);
+      setOpenOrders((open || []).map(mapEngineOrder));
+      setAllOrders((all || []).map(mapEngineOrder));
       setFills(fls || []);
     } catch {
-      setOpenOrders([]);
-      setAllOrders([]);
-      setFills([]);
+      // silent fail
     } finally {
       setIsLoading(false);
     }
@@ -96,35 +98,42 @@ export function useOrders() {
     const mapped = mapEngineOrder(result.order);
 
     if (mapped.symbol !== marketRef.current) return;
-    if (userRef.current && mapped.userId !== userRef.current) return;
+    if (!userRef.current || mapped.userId !== userRef.current) return;
 
-    setOpenOrders(prev => [mapped, ...prev]);
-    setAllOrders(prev => [mapped, ...prev]);
+    if (mapped.Status === "open" || mapped.Status === "partially_filled") {
+      setOpenOrders(prev => {
+        if (prev.some(o => o.orderId === mapped.orderId)) return prev;
+        return [mapped, ...prev];
+      });
+    }
+    setAllOrders(prev => {
+      if (prev.some(o => o.orderId === mapped.orderId)) return prev;
+      return [mapped, ...prev];
+    });
     if (result.fills?.length) {
-      const mappedFills = mapEnginFills(result.fills);
+      const mappedFills = mapEngineFills(result.fills);
       setFills(prev => [...mappedFills, ...prev]);
     }
   }, []);
 
-
   const handleCancelOrder = useCallback((data: unknown) => {
     const order = data as EngineOrder;
     if (!order?.orderid) return;
-    if (userRef.current && order.userId !== userRef.current) return;
+    if (!userRef.current || order.userId !== userRef.current) return;
 
     const mapped = mapEngineOrder(order);
     setOpenOrders(prev => prev.filter(o => o.orderId !== mapped.orderId));
     setAllOrders(prev => {
       const idx = prev.findIndex(o => o.orderId === mapped.orderId);
-      if (idx === -1) return prev;
+      if (idx === -1) return [mapped, ...prev];
       const copy = [...prev];
       copy[idx] = mapped;
       return copy;
     });
   }, []);
 
-  useWebSocket("create-order", handleCreateOrder);
   useWebSocket("cancel-order", handleCancelOrder);
+  useWebSocket("create-order", handleCreateOrder);
 
   return { openOrders, allOrders, fills, isLoading, refetch: fetchAll };
 }

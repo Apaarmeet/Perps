@@ -31,14 +31,13 @@ export function usePositions() {
   }, []);
 
   useEffect(() => {
+    setIsLoading(true);
     fetchPositions();
   }, [market, fetchPositions]);
 
-  const handleLiquidation = useCallback((data: unknown) => {
-    fetchPositions();
-  }, [fetchPositions]);
+  useWebSocket("create-order", fetchPositions);
+  useWebSocket("cancel-order", fetchPositions);
+  useWebSocket("liquidation", fetchPositions);
 
-  useWebSocket("liquidation", handleLiquidation);
-
-  return { positions, isLoading };
+  return { positions, isLoading, refetch: fetchPositions };
 }

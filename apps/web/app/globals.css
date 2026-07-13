@@ -1,62 +1,89 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0a0b0d;
-  --color-bg-secondary: #111318;
-  --color-bg-tertiary: #181a20;
-  --color-bg-hover: #1e2028;
-  --color-bg-input: #14161c;
+  --color-bg-primary: #090a0c;
+  --color-bg-secondary: #0f1116;
+  --color-bg-tertiary: #15171d;
+  --color-bg-hover: #1b1e26;
+  --color-bg-input: #111318;
 
-  --color-border-default: #1e2028;
-  --color-border-strong: #2a2d35;
-  --color-border-accent: #3a3d47;
+  --color-border-default: #1c1f28;
+  --color-border-strong: #262a34;
+  --color-border-accent: #353a47;
 
-  --color-text-primary: #f4f4f6;
-  --color-text-secondary: #858a94;
-  --color-text-muted: #555a64;
+  --color-text-primary: #eaf0f6;
+  --color-text-secondary: #818898;
+  --color-text-muted: #4b5162;
 
-  --color-green: #00d4a8;
-  --color-green-muted: rgba(0, 212, 168, 0.15);
-  --color-red: #f5465d;
-  --color-red-muted: rgba(245, 70, 93, 0.15);
+  --color-green: #02c278;
+  --color-green-muted: rgba(2, 194, 120, 0.12);
+  --color-green-hover: rgba(2, 194, 120, 0.08);
+  --color-red: #e8425c;
+  --color-red-muted: rgba(232, 66, 92, 0.12);
+  --color-red-hover: rgba(232, 66, 92, 0.08);
 
-  --color-accent: #4c94ff;
-  --color-accent-hover: #3d7ce8;
+  --color-accent: #5279ff;
+  --color-accent-hover: #4266e8;
+  --color-accent-muted: rgba(82, 121, 255, 0.12);
 
-  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Inter", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 
   --animate-slide-up: slide-up 0.2s ease-out;
-  --animate-flash-green: flash-green 0.5s ease-out;
-  --animate-flash-red: flash-red 0.5s ease-out;
+  --animate-slide-down: slide-down 0.2s ease-out;
+  --animate-scale-in: scale-in 0.15s ease-out;
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes flash-green {
-  0% { background-color: rgba(0, 212, 168, 0.3); }
-  100% { background-color: transparent; }
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes flash-red {
-  0% { background-color: rgba(245, 70, 93, 0.3); }
-  100% { background-color: transparent; }
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-feature-settings: "tnum" on;
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" on, "cv01" on, "cv02" on;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-default) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
 }
 
 input[type="number"]::-webkit-inner-spin-button,
@@ -67,4 +94,34 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--color-bg-tertiary);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-primary);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-bg-primary);
+  box-shadow: 0 0 0 1px var(--color-accent);
 }

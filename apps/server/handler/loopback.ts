@@ -26,7 +26,7 @@ export async function loopback(type: string, payload: Record<string, unknown>) {
     void writeClient.xAdd("engine:commands", "*", {
         type,
         correlationId,
-        responseStream: `response:${backendId}`,
+        responseQueue: `response:${backendId}`,
         payload: JSON.stringify(payload),
     }).catch((err) => {
       clearTimeout(timeout);

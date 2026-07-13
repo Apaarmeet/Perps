@@ -1,13 +1,10 @@
-import { prisma } from "@repo/db";
+import { loopback } from "../handler/loopback";
 
 export async function getOrders(marketId: string, userId: string) {
-  const orders = await prisma.order.findMany({
-    where: {
-      userId,
-      symbol: marketId,
-    },
-    orderBy: { createdAt: "desc" },
+  const result = await loopback("get-orders", {
+    userId,
+    symbol: marketId,
   });
-
-  return orders;
+  const data = result as { orders?: any[] };
+  return data?.orders ?? [];
 }

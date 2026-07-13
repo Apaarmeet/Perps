@@ -63,7 +63,7 @@ export async function placeRandomOrder(
       price: limitPrice,
       qty,
       leverage,
-      sllipage: slippage,
+      slippage: slippage,
     };
 
     const result = await request("/order", {
@@ -140,7 +140,7 @@ async function placeOrder(
       price: null,
       qty,
       leverage,
-      sllipage: 1,
+      slippage: 1,
     };
 
     const result = await request("/order", {

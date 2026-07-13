@@ -7,7 +7,7 @@ export const createOrderSchema = z.object({
   price: z.number().nullable(),
   qty: z.number().positive(),
   leverage: z.number().positive(),
-  sllipage: z.number().nonnegative(),
+  slippage: z.number().nonnegative(),
 });
 
 
