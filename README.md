@@ -1,159 +1,218 @@
-# Turborepo starter
+# Coinbook — Perpetual Futures Trading Platform
 
-This Turborepo starter is maintained by the Turborepo core team.
+A full-stack **perpetual futures exchange** with an in-memory order-matching engine, real-time Binance price feeds, Redis-based microservice orchestration, PostgreSQL persistence, and a Next.js trading dashboard.
 
-## Using this example
+## Tech Stack
 
-Run the following command:
+| Layer | Technology |
+|-------|-----------|
+| Runtime | [Bun](https://bun.sh) 1.3.13 |
+| Monorepo | [Turborepo](https://turbo.build/repo) |
+| Frontend | Next.js 16, React 19, Tailwind CSS v4 |
+| Charts | TradingView Lightweight Charts |
+| API Server | Express 5 |
+| Matching Engine | TypeScript (in-memory, CLOB) |
+| Database | PostgreSQL 16 + Prisma ORM |
+| Cache/Queue | Redis 7 |
+| Price Feeds | Binance WebSocket API |
+| Auth | JWT + bcrypt |
 
-```sh
-npx create-turbo@latest
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          CLIENTS                                        │
+│  ┌──────────┐                   ┌─────────────────────────────────┐     │
+│  │ Browser  │                   │  Trading Bot / API Clients      │     │
+│  │ (Next.js)│                   └──────────┬──────────────────────┘     │
+│  └────┬─────┘                              │                            │
+│       │                     HTTP (3000)     │                            │
+│       │ WebSocket (3002)                    │                            │
+└───────┼─────────────────────────────────────┼────────────────────────────┘
+        │                                     │
+┌───────▼─────────────────────────────────────▼────────────────────────────┐
+│                                                                          │
+│  ┌──────────────────┐      ┌──────────────────────────────────────────┐  │
+│  │  WSS Connections  │      │           Express Server (3000)          │  │
+│  │  (WebSocket Svr)  │      │  ┌──────────┐  ┌────────────────────┐   │  │
+│  │                   │      │  │JWT Auth  │  │  REST Handlers     │   │  │
+│  │  • engineDataBridge│      │  │Middleware│  │  • order/depth     │   │  │
+│  │  • Binance Feeds  │      │  └──────────┘  │  • positions/bal   │   │  │
+│  │  • Client WS      │      │                 │  • candles/fills   │   │  │
+│  └────────┬─────────┘      │                 └────────┬───────────┘   │  │
+│           │                └──────────────────────────┼────────────────┘  │
+│           │                           Redis            │                  │
+│           │                     ┌──────┴──────┐        │                  │
+│           │                     │  Streams /  │        │                  │
+│           │                     │  Pub/Sub    │        │                  │
+│           │                     └──────┬──────┘        │                  │
+│           │                            │               │                  │
+│  ┌────────▼────────────────────────────▼───────────────▼──────────────┐  │
+│  │                          ENGINE                                      │  │
+│  │  ┌──────────────┐  ┌───────────┐  ┌──────────┐  ┌──────────────┐  │  │
+│  │  │  exchangeStore│  │  Matching  │  │ Funding  │  │  Liquidation  │  │  │
+│  │  │  (In-Memory)  │  │  Engine   │  │  Rate    │  │  Engine      │  │  │
+│  │  └──────────────┘  └───────────┘  └──────────┘  └──────────────┘  │  │
+│  └────────────────────────────────┬────────────────────────────────────┘  │
+│                                   │                                       │
+│                         ┌─────────▼─────────┐                            │
+│                         │    DB Puller       │                            │
+│                         │  (Redis→PostgreSQL)│                            │
+│                         └─────────┬─────────┘                            │
+│                                   │                                       │
+│                         ┌─────────▼─────────┐                            │
+│                         │    PostgreSQL      │                            │
+│                         │  • Users           │                            │
+│                         │  • Orders          │                            │
+│                         │  • Fills           │                            │
+│                         │  • Candles         │                            │
+│                         └───────────────────┘                            │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-## What's inside?
+## Project Structure
 
-This Turborepo includes the following packages/apps:
+```
+apps/
+├── engine/          # Order-matching engine (in-memory CLOB)
+│   ├── exchangeStore.ts   # All live state (orderbooks, balances, positions)
+│   ├── handler/           # Command handlers (createOrder, cancelOrder, etc.)
+│   └── helper/            # priceFeed, fundingRate, liquidation, snapshot
+├── server/          # Express REST API (port 3000)
+│   ├── routes/            # engine.routes.ts, user.routes.ts
+│   ├── controllers/       # Request handling logic
+│   └── handler/           # Redis loopback bridge + DB queries
+├── web/             # Next.js 16 trading dashboard
+│   ├── app/               # (auth)/login, (auth)/signup, (dashboard)/trade
+│   ├── components/        # auth, layout, trading, ui
+│   ├── context/           # AuthContext, MarketContext
+│   └── hooks/             # useOrderbook, usePositions, useWebSocket, etc.
+├── wssConnections/  # WebSocket server (port 3002)
+│   └── src/               # clientWs, engineDataBridge, pricefeed
+├── db-puller/       # Redis stream → PostgreSQL persister
+└── simulator/       # Trading bot with 5 strategies (MM, momentum, etc.)
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+packages/
+├── db/              # Prisma schema + client (User, Order, Fill, Candle)
+├── redis/           # Redis client factory
+├── ui/              # Shared React components
+├── eslint-config/   # Shared ESLint configs
+└── typescript-config/ # Shared TS configs
 ```
 
-Without global `turbo`, use your package manager:
+## Data Flow
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+### Order Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant Client as Web/API Client
+    participant Server as Express Server
+    participant Redis
+    participant Engine
+    participant DB as DB Puller
+    participant PG as PostgreSQL
+
+    Client->>Server: POST /order (side, price, qty, leverage)
+    Server->>Server: JWT auth, Zod validation
+    Server->>Redis: XADD engine:commands
+    Server->>Redis: SUB response:{correlationId}
+    Redis->>Engine: XREAD engine:commands
+    Engine->>Engine: Validate margin, match order
+    Engine->>Engine: Update orderbook, position, balance
+    Engine->>Redis: XADD response:{correlationId} (result)
+    Engine->>Redis: XADD engine:db-writes (order, fills)
+    Engine->>Redis: XADD engine-dataStream (depth, trade)
+    Redis->>Server: Response received
+    Server-->>Client: HTTP 200 (order result)
+    DB->>Redis: XREAD engine:db-writes
+    DB->>PG: prisma.order.create(), prisma.fill.create()
+    
+    par WebSocket Broadcast
+        Redis->>WSS: SUB engine-data
+        WSS-->>Client: WS message (depth, position, balance update)
+    end
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Price Feed & Real-time Updates
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```mermaid
+flowchart LR
+    BIN[Binance WS] -->|wss://stream.binance.com:9443| WSS[wssConnections]
+    WSS -->|mark prices| REDIS[(Redis Streams)]
+    REDIS -->|XREAD| ENGINE[Engine]
+    ENGINE -->|margin calls| LIQ[Liquidation Engine]
+    ENGINE -->|candle updates| REDIS
+    REDIS -->|engine-dataStream| WSS
+    REDIS -->|engine-dataStream| DB[DB Puller]
+    DB --> PG[(PostgreSQL)]
+    WSS -->|WS messages| WEB[Web Client]
 ```
 
-Without global `turbo`:
+## Getting Started
+
+### Prerequisites
+
+- [Bun](https://bun.sh) 1.3.13+
+- [Docker](https://docker.com) + Docker Compose
+- [Turbo](https://turbo.build/repo) (optional, for global turbo commands)
+
+### Quick Start
 
 ```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+# Start infrastructure + all services
+docker compose up -d
+
+# Or run services individually with turborepo:
+bun install
+bun run dev
 ```
 
-### Develop
+### Services
 
-To develop all apps and packages, run the following command:
+| Service | Port | Description |
+|---------|------|-------------|
+| Server | `3000` | Express REST API |
+| Web | `5173` | Next.js dev server |
+| WSS | `3002` | WebSocket server |
+| PostgreSQL | `5432` | Database |
+| Redis | `6379` | Cache / message broker |
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+### Database
 
 ```sh
-cd my-turborepo
-turbo dev
+# Run migrations
+cd packages/db && bunx prisma migrate deploy
+
+# Open Prisma Studio
+bunx prisma studio
 ```
 
-Without global `turbo`, use your package manager:
+## API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/signup` | — | Create account |
+| POST | `/signin` | — | Login |
+| POST | `/onRamp` | JWT | Deposit USD |
+| POST | `/order` | JWT | Create order (market/limit, long/short) |
+| DELETE | `/order` | JWT | Cancel limit order |
+| GET | `/equity/available` | JWT | Available balance |
+| GET | `/positions/:marketId` | JWT | Position for symbol |
+| GET | `/depth/:marketId` | — | Order book depth |
+| GET | `/candles/:marketId` | — | Candle history |
+| GET | `/orders/all` | JWT | All user orders |
+| GET | `/orders/open/:marketId` | JWT | Open orders for symbol |
+| GET | `/orders/:marketId` | JWT | Order history for symbol |
+| GET | `/fills` | JWT | Fill history |
+
+## Simulator
+
+A built-in trading bot simulates market activity with 5 strategies:
 
 ```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
+docker compose exec engine bun run apps/simulator/index.ts
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Strategies: Market Maker, Momentum, Mean Reversion, Scalper, Retail Trader.
