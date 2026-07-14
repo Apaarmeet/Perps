@@ -7,4 +7,4 @@ COPY packages/ ./packages/
 COPY apps/ ./apps/
 COPY turbo.json ./
 
-RUN bun install --frozen-lockfile
+RUN bun install 
