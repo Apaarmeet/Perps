@@ -11,34 +11,31 @@ async function handleDbWrites(msg: any) {
     const payload = JSON.parse(data as string)
     const order = payload.order || payload
 
-    switch (commandType) {
-        case "create-order": {
-            await prisma.order.upsert({
-                where: { orderId: order.orderid },
-                update: { filledQty: order.filledQty, Status: order.status },
-                create: {
-                    orderId: order.orderid,
-                    userId: order.userId,
-                    symbol: order.symbol,
-                    side: order.side === "LONG" ? "buy" : "sell",
-                    type: order.type,
-                    price: order.price,
-                    qty: order.qty,
-                    filledQty: order.filledQty,
-                    margin: order.margin,
-                    Status: order.status,
-                    createdAt: new Date(order.createdAt),
-                }
-            });
-            break;
+    if (commandType !== "create-order" && commandType !== "cancel-order") return;
+
+    await prisma.order.upsert({
+        where: { orderId: order.orderid },
+        update: { filledQty: order.filledQty, Status: order.status },
+        create: {
+            orderId: order.orderid,
+            userId: order.userId,
+            symbol: order.symbol,
+            side: order.side === "LONG" ? "buy" : "sell",
+            type: order.type,
+            price: order.price,
+            qty: order.qty,
+            filledQty: order.filledQty,
+            margin: order.margin,
+            Status: order.status,
+            createdAt: new Date(order.createdAt),
         }
-        case "cancel-order": {
-            await prisma.order.update({
-                where: { orderId: order.orderid },
-                data: { Status: "cancelled" },
-            });
-            break;
-        }
+    });
+
+    if (commandType === "cancel-order") {
+        await prisma.order.update({
+            where: { orderId: order.orderid },
+            data: { Status: "cancelled" },
+        });
     }
 
     if (payload.fills) {

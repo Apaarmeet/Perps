@@ -1,11 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   BALANCES, ORDERBOOK, POSITIONS, ORDERS, FILLS, INDEX_PRICES
 } from "../exchangeStore";
 
-const SNAPSHOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../data/snapshot");
+const SNAPSHOT_DIR = path.resolve(process.cwd(), "data/snapshot");
 const INTERVAL_MS = 5 * 60 * 1000;
 const MAX_SNAPSHOTS = 3;
 
@@ -37,6 +36,7 @@ async function saveSnapshot() {
       const oldest = files.shift()!;
       await fs.promises.unlink(path.join(SNAPSHOT_DIR, oldest));
     }
+    console.log(`[snapshot] saved (${snapshot.balances.length} users)`);
   } catch (err) {
     console.error("Snapshot save failed:", err);
   }
