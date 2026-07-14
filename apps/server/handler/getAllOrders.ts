@@ -1,7 +1,23 @@
-import { loopback } from "../handler/loopback";
+import { prisma } from "@repo/db";
 
 export async function getAllOrders(userId: string) {
-  const result = await loopback("get-orders", { userId });
-  const data = result as { orders?: any[] };
-  return data?.orders ?? [];
+  const orders = await prisma.order.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  return orders.map(o => ({
+    orderid: o.orderId,
+    userId: o.userId,
+    symbol: o.symbol,
+    side: o.side === "buy" ? "LONG" : "SHORT",
+    type: o.type,
+    price: o.price ? Number(o.price) : null,
+    qty: Number(o.qty),
+    filledQty: Number(o.filledQty),
+    margin: Number(o.margin),
+    status: o.Status,
+    createdAt: o.createdAt.getTime(),
+  }));
 }

@@ -2,6 +2,7 @@ import { getRedisClient } from "@repo/redis"
 import { prisma } from "@repo/db"
 
 const redis = await getRedisClient()
+const cleanupPub = await getRedisClient()
 
 async function handleDbWrites(msg: any) {
     const { commandType, ok, data } = msg.message
@@ -58,6 +59,9 @@ async function handleDbWrites(msg: any) {
             });
         }
     }
+
+    // Signal engine that this order is persisted and can be freed from memory
+    await cleanupPub.publish("engine:cleanup", JSON.stringify({ orderId: order.orderid }));
 }
 
 async function handleCandle(msg: any) {
@@ -95,15 +99,15 @@ async function handleCandle(msg: any) {
 }
 
 async function dbPuller() {
-    let dataStreamid = "$"
-    let dataWriteid = "$"
+    let dataStreamid = "0"
+    let dataWriteid = "0"
     while (true) {
         const streams = await redis.xRead(
             [
                 { key: "engine:db-writes", id: dataWriteid},
                 { key: "engine-dataStream", id: dataStreamid },
             ],
-            { BLOCK: 0 }
+            { BLOCK: 0, COUNT: 10 }
         );
 
         for (const stream of streams!) {

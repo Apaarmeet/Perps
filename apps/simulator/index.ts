@@ -113,8 +113,8 @@ function pick<T>(arr: readonly T[]): T {
 
 function pickSymbol(): Symbol {
   const r = Math.random();
-  if (r < 0.5) return "SOLUSD";
-  if (r < 0.8) return "ETHUSD";
+  if (r < 0.7) return "SOLUSD";
+  if (r < 0.9) return "ETHUSD";
   return "BTCUSD";
 }
 

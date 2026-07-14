@@ -8,7 +8,7 @@ export function formatPrice(value: number | null | undefined): string {
 export function formatSize(value: number | null | undefined): string {
   if (value == null || isNaN(value)) return "--";
   if (value >= 1000) return value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  return value.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function formatUSD(value: number | null | undefined): string {
