@@ -8,6 +8,7 @@ import { middleware } from "./middleware"
 const app = express()
 
 app.use((req, res, next) => {
+  req.url = req.url.replace(/\/{2,}/g, "/");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
