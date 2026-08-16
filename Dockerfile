@@ -1,5 +1,8 @@
 FROM oven/bun:1.3.13-alpine
 
+# Install local Redis server inside the container
+RUN apk add --no-cache redis
+
 WORKDIR /app
 
 COPY package.json bun.lock ./
