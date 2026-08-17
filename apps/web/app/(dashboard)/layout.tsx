@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { MarketProvider } from "@/context/MarketContext";
+import { PositionsProvider } from "@/context/PositionsContext";
 import { TopBar } from "@/components/layout/TopBar";
 import { Spinner } from "@/components/ui/Spinner";
 
@@ -35,10 +36,12 @@ function AuthGuard({ children }: { children: ReactNode }) {
       </div>
     }>
       <MarketProvider>
-        <div className="flex flex-col h-full">
-          <TopBar />
-          <main className="flex-1 overflow-hidden">{children}</main>
-        </div>
+        <PositionsProvider>
+          <div className="flex flex-col h-full">
+            <TopBar />
+            <main className="flex-1 overflow-hidden">{children}</main>
+          </div>
+        </PositionsProvider>
       </MarketProvider>
     </Suspense>
   );

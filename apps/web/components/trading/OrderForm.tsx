@@ -4,6 +4,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { api } from "@/lib/api";
 import { useMarket } from "@/context/MarketContext";
 import { useBalance } from "@/hooks/useBalance";
+import { usePositions } from "@/hooks/usePositions";
 import { usePriceFeed } from "@/hooks/usePriceFeed";
 import { Input } from "@/components/ui/Input";
 import { toast } from "@/lib/toast";
@@ -24,6 +25,7 @@ interface OrderFormProps {
 export function OrderForm({ setPriceRef }: OrderFormProps) {
   const { market } = useMarket();
   const { available, refetch: refetchBalance } = useBalance();
+  const { refetch: refetchPositions } = usePositions();
   const { perpPrice } = usePriceFeed();
 
   const [orderType, setOrderType] = useState<OrderType>("limit");
@@ -109,6 +111,7 @@ export function OrderForm({ setPriceRef }: OrderFormProps) {
       setPrice("");
       setQty("");
       refetchBalance();
+      refetchPositions();
       toast.success("Order placed");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Order failed");
