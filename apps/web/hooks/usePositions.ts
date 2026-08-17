@@ -12,32 +12,50 @@ export function usePositions() {
   const [isLoading, setIsLoading] = useState(true);
   const marketRef = useRef(market);
   marketRef.current = market;
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchPositions = useCallback(async () => {
+  const fetchPositions = useCallback(async (isInitial = false) => {
     try {
       const data = await api.get<{ position: Position | null }>(
         `/positions/${marketRef.current}`
       );
-      if (!data || !data.position) {
+      if (!data || !data.position || data.position.qty === 0) {
         setPositions([]);
       } else {
         setPositions([data.position]);
       }
     } catch {
-      setPositions([]);
+      // Preserve existing position on background network error
+      if (isInitial) {
+        setPositions([]);
+      }
     } finally {
-      setIsLoading(false);
+      if (isInitial) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
+  // Debounced refetch for real-time WebSocket events
+  const debouncedFetch = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      fetchPositions(false);
+    }, 200);
+  }, [fetchPositions]);
+
   useEffect(() => {
     setIsLoading(true);
-    fetchPositions();
+    fetchPositions(true);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
   }, [market, fetchPositions]);
 
-  useWebSocket("create-order", fetchPositions);
-  useWebSocket("cancel-order", fetchPositions);
-  useWebSocket("liquidation", fetchPositions);
+  useWebSocket("create-order", debouncedFetch);
+  useWebSocket("cancel-order", debouncedFetch);
+  useWebSocket("liquidation", debouncedFetch);
 
-  return { positions, isLoading, refetch: fetchPositions };
+  return { positions, isLoading, refetch: () => fetchPositions(false) };
 }

@@ -93,7 +93,7 @@ export function PositionsTable() {
               const pnlColor = pnl >= 0 ? "text-green" : "text-red";
 
               return (
-                <tr key={pos.userId + pos.side} className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors">
+                <tr key={`${pos.userId}-${pos.side}-${market}`} className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors">
                   <td className="px-3 py-2">
                     <Badge label={pos.side} variant={pos.side === "LONG" ? "green" : "red"} />
                   </td>

@@ -92,7 +92,7 @@ export function handleCreateOrder(payload: createOrderInput) {
                 makerOrder.status = makerOrder.filledQty === makerOrder.qty ? "filled" : "partially_filled";
             }
 
-            const makerSide = side === "LONG" ? "SHORT" : "LONG";
+            const makerSide = restingOrder.side;
             applyFillToPosition(restingOrder.userId, symbol, fillQty, levelPrice, makerSide, restingOrder.leverage);
             applyFillToPosition(userId, symbol, fillQty, levelPrice, side, leverage);
             touchedUsersinRestingOrders.add(restingOrder.userId);
