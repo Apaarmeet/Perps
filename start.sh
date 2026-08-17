@@ -14,13 +14,13 @@ fi
 # 2. Ensure snapshot directory exists for matching engine
 mkdir -p /app/data/snapshot
 
-# 3. Run Database Migrations if DATABASE_URL is provided
+# 3. Run Database Migrations in background so port 3000 opens instantly
 if [ -n "$DATABASE_URL" ]; then
-  echo "Running Prisma migrations..."
-  cd /app/packages/db
-  bunx prisma generate
-  bunx prisma migrate deploy || echo "Migration warning: could not run migrations, continuing..."
-  cd /app
+  (
+    echo "Running Prisma migrations..."
+    cd /app/packages/db
+    bunx prisma migrate deploy || echo "Migration warning: could not run migrations, continuing..."
+  ) &
 fi
 
 echo "Starting background services..."
@@ -49,6 +49,6 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-# 7. Start REST API Server in foreground
-echo "Starting REST API Server on port ${PORT:-3000}..."
+# 7. Start REST API Server in foreground immediately
+echo "Starting REST API Server on 0.0.0.0:${PORT:-3000}..."
 exec bun run apps/server/index.ts
