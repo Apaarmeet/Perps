@@ -25,6 +25,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 const TOKEN_KEY = "token";
+const USER_KEY = "user";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
@@ -33,11 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored) {
-      setToken(stored);
+    try {
+      const storedToken = localStorage.getItem(TOKEN_KEY);
+      const storedUser = localStorage.getItem(USER_KEY);
+      if (storedToken) {
+        setToken(storedToken);
+      }
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch {
+      // ignore parse errors
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = useCallback(
@@ -47,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
       localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
       router.push("/trade");
@@ -62,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
       localStorage.setItem(TOKEN_KEY, data.token);
+      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
       setToken(data.token);
       setUser(data.user);
       router.push("/trade");
@@ -71,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
     setToken(null);
     setUser(null);
     router.push("/login");
