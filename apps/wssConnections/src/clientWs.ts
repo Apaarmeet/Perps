@@ -20,7 +20,7 @@ await subscriber.subscribe("engine-data", (message) => {
 
         for (const [ws, subs] of clients) {
             if (ws.readyState === WebSocket.OPEN) {
-                if (isGlobal || subs.has(symbol)) {
+                if (isGlobal || subs.size === 0 || subs.has(symbol)) {
                     ws.send(message);
                 }
             }

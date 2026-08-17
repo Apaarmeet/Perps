@@ -8,7 +8,29 @@ const readClient = await getRedisClient()
 const writeclient = await getRedisClient()
 let lastId = "$"
 
+const lastSnapshotTime = new Map<string, number>();
+const snapshotTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 async function publishDepthSnapshot(symbol: string) {
+    const now = Date.now();
+    const last = lastSnapshotTime.get(symbol) || 0;
+    
+    if (now - last < 100) {
+        if (!snapshotTimeouts.has(symbol)) {
+            snapshotTimeouts.set(symbol, setTimeout(() => {
+                snapshotTimeouts.delete(symbol);
+                publishDepthSnapshot(symbol);
+            }, 100 - (now - last)));
+        }
+        return;
+    }
+    
+    lastSnapshotTime.set(symbol, now);
+    if (snapshotTimeouts.has(symbol)) {
+        clearTimeout(snapshotTimeouts.get(symbol));
+        snapshotTimeouts.delete(symbol);
+    }
+
     const orderBook = ORDERBOOK.get(symbol);
     if (!orderBook) return;
 
@@ -74,7 +96,10 @@ export async function consumeEngineRequests(){
 
                     if (type === "create-order" || type === "cancel-order") {
                         const parsedPayload = JSON.parse(payload);
-                        const symbol = (result as any)?.order?.symbol ?? parsedPayload.symbol ?? null;
+                        let symbol = (result as any)?.order?.symbol ?? parsedPayload.symbol ?? null;
+                        if (!symbol && type === "cancel-order") {
+                            symbol = (result as any)?.symbol;
+                        }
                         if (symbol) await publishDepthSnapshot(symbol);
                     }
 
