@@ -1,10 +1,10 @@
 import { BALANCES, ORDERS, POSITIONS } from "../exchangeStore";
 
-
 export function reconcileUserMargin(userId: string) {
   const usd = BALANCES.get(userId)?.USD;
   if (!usd) return;
 
+  const totalEquity = usd.available + usd.locked;
   let requiredMargin = 0;
 
   for (const position of POSITIONS.get(userId)?.values() ?? []) {
@@ -21,7 +21,6 @@ export function reconcileUserMargin(userId: string) {
     }
   }
 
-  const delta = usd.locked - requiredMargin;
   usd.locked = requiredMargin;
-  usd.available += delta;
+  usd.available = Math.max(0, totalEquity - requiredMargin);
 }
