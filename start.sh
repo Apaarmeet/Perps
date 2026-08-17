@@ -14,10 +14,16 @@ fi
 # 2. Ensure snapshot directory exists for matching engine
 mkdir -p /app/data/snapshot
 
-# 3. Run Database Migrations in background so port 3000 opens instantly
+# 3. Generate Prisma Client locally (takes <0.3s, ensures module exists)
+echo "Generating Prisma client..."
+cd /app/packages/db
+bunx prisma generate
+cd /app
+
+# 4. Run Database Migrations in background (non-blocking so port 3000 opens instantly)
 if [ -n "$DATABASE_URL" ]; then
   (
-    echo "Running Prisma migrations..."
+    echo "Running Prisma migrations in background..."
     cd /app/packages/db
     bunx prisma migrate deploy || echo "Migration warning: could not run migrations, continuing..."
   ) &
@@ -25,17 +31,17 @@ fi
 
 echo "Starting background services..."
 
-# 4. Start Trading Engine in background
+# 5. Start Trading Engine in background
 bun run apps/engine/index.ts &
 ENGINE_PID=$!
 echo "Engine started with PID: $ENGINE_PID"
 
-# 5. Start DB-Puller in background
+# 6. Start DB-Puller in background
 bun run apps/db-puller/index.ts &
 DB_PULLER_PID=$!
 echo "DB-Puller started with PID: $DB_PULLER_PID"
 
-# 6. Start WebSocket Gateway in background
+# 7. Start WebSocket Gateway in background
 bun run apps/wssConnections/index.ts &
 WSS_PID=$!
 echo "WSS Gateway started with PID: $WSS_PID"
@@ -49,6 +55,6 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-# 7. Start REST API Server in foreground immediately
+# 8. Start REST API Server in foreground
 echo "Starting REST API Server on 0.0.0.0:${PORT:-3000}..."
 exec bun run apps/server/index.ts
