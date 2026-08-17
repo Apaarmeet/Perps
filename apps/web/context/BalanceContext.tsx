@@ -79,10 +79,19 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchBalance]);
 
-  useWebSocket("create-order", debouncedFetch);
-  useWebSocket("cancel-order", debouncedFetch);
-  useWebSocket("onRamp", debouncedFetch);
-  useWebSocket("liquidation", debouncedFetch);
+  const handleWsEvent = useCallback((data: any) => {
+    if (!user) return;
+    const touched = data?.touchedUsers || [];
+    const affectedUserId = data?.userId || data?.order?.userId;
+    if (touched.includes(user.id) || affectedUserId === user.id) {
+      debouncedFetch();
+    }
+  }, [user, debouncedFetch]);
+
+  useWebSocket("create-order", handleWsEvent);
+  useWebSocket("cancel-order", handleWsEvent);
+  useWebSocket("onRamp", handleWsEvent);
+  useWebSocket("liquidation", handleWsEvent);
 
   return (
     <BalanceContext.Provider

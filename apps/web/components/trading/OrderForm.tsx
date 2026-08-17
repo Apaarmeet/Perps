@@ -25,7 +25,7 @@ interface OrderFormProps {
 export function OrderForm({ setPriceRef }: OrderFormProps) {
   const { market } = useMarket();
   const { available, refetch: refetchBalance } = useBalance();
-  const { refetch: refetchPositions } = usePositions();
+  const { positions, refetch: refetchPositions } = usePositions();
   const { perpPrice } = usePriceFeed();
 
   const [orderType, setOrderType] = useState<OrderType>("limit");
@@ -57,14 +57,24 @@ export function OrderForm({ setPriceRef }: OrderFormProps) {
   const slippageNum = parseFloat(slippage) || 0;
 
   const entryPrice = orderType === "limit" ? priceNum : (perpPrice ?? 0);
-  const margin =
+  const marginToReserve =
     qtyNum > 0 && entryPrice > 0
       ? (entryPrice * qtyNum) / leverage
       : 0;
-  const effectiveMargin =
+
+  let effectiveMargin =
     orderType === "market" && entryPrice > 0
-      ? margin * (1 + slippageNum / 100)
-      : margin;
+      ? marginToReserve * (1 + slippageNum / 100)
+      : marginToReserve;
+
+  const existingPosition = positions[0];
+  const isClosing = existingPosition && existingPosition.side !== side && existingPosition.qty > 0;
+  
+  if (isClosing) {
+    const closingQty = Math.min(qtyNum, existingPosition.qty);
+    const existingMarginForClosing = (closingQty / existingPosition.qty) * existingPosition.margin;
+    effectiveMargin = Math.max(0, effectiveMargin - existingMarginForClosing);
+  }
 
   const estimatedLiqPrice = (() => {
     if (qtyNum <= 0 || leverage <= 0 || entryPrice <= 0) return 0;

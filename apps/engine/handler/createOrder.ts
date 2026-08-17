@@ -167,5 +167,5 @@ export function handleCreateOrder(payload: createOrderInput) {
     }
 
     for (const id of touchedUsersinRestingOrders) reconcileUserMargin(id);
-    return { order: ORDERS.get(orderId), fills };
+    return { order: ORDERS.get(orderId), fills, touchedUsers: Array.from(touchedUsersinRestingOrders) };
 }

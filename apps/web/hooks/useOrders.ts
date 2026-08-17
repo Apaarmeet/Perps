@@ -105,7 +105,17 @@ export function useOrders() {
     const mapped = mapEngineOrder(result.order);
 
     if (mapped.symbol !== marketRef.current) return;
-    if (!userRef.current || mapped.userId !== userRef.current) return;
+    if (!userRef.current) return;
+
+    const touched = (data as any)?.touchedUsers || [];
+    const isMaker = touched.includes(userRef.current) && mapped.userId !== userRef.current;
+
+    if (isMaker) {
+      fetchAll();
+      return;
+    }
+
+    if (mapped.userId !== userRef.current) return;
 
     if (mapped.Status === "open" || mapped.Status === "partially_filled") {
       setOpenOrders(prev => {
@@ -141,6 +151,15 @@ export function useOrders() {
 
   useWebSocket("cancel-order", handleCancelOrder);
   useWebSocket("create-order", handleCreateOrder);
+
+  const handleLiquidation = useCallback((data: any) => {
+    if (!userRef.current) return;
+    if (data?.userId === userRef.current) {
+      fetchAll();
+    }
+  }, [fetchAll]);
+
+  useWebSocket("liquidation", handleLiquidation);
 
   return { openOrders, allOrders, fills, isLoading, refetch: fetchAll };
 }

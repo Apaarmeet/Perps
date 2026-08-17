@@ -78,9 +78,18 @@ export function PositionsProvider({ children }: { children: ReactNode }) {
     };
   }, [market, user, fetchPositions]);
 
-  useWebSocket("create-order", debouncedFetch);
-  useWebSocket("cancel-order", debouncedFetch);
-  useWebSocket("liquidation", debouncedFetch);
+  const handleWsEvent = useCallback((data: any) => {
+    if (!userRef.current) return;
+    const touched = data?.touchedUsers || [];
+    const affectedUserId = data?.userId || data?.order?.userId;
+    if (touched.includes(userRef.current) || affectedUserId === userRef.current) {
+      debouncedFetch();
+    }
+  }, [debouncedFetch]);
+
+  useWebSocket("create-order", handleWsEvent);
+  useWebSocket("cancel-order", handleWsEvent);
+  useWebSocket("liquidation", handleWsEvent);
 
   return (
     <PositionsContext.Provider

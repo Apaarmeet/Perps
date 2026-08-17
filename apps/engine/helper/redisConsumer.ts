@@ -17,6 +17,7 @@ async function publishDepthSnapshot(symbol: string) {
             price,
             orders.reduce((sum, order) => sum + (order.qty - order.filledQty), 0),
         ] as [number, number])
+        .filter(([, size]) => size > 0)
         .sort((a, b) => a[0] - b[0])
         .slice(0, 20);
 
@@ -25,6 +26,7 @@ async function publishDepthSnapshot(symbol: string) {
             price,
             orders.reduce((sum, order) => sum + (order.qty - order.filledQty), 0),
         ] as [number, number])
+        .filter(([, size]) => size > 0)
         .sort((a, b) => b[0] - a[0])
         .slice(0, 20);
 

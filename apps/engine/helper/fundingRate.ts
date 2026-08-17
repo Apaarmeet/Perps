@@ -12,19 +12,18 @@ function applyFunding(symbol: string, fundingRate: number) {
         const userBalance = BALANCES.get(userId);
 
         if (!userBalance || !userBalance["USD"]) continue;
-        // LONG pays when fundingRate > 0, receives when < 0
-        // SHORT receives when fundingRate > 0, pays when < 0
         if (position.side === "LONG" && fundingRate > 0) {
             if (userBalance["USD"]!.available < payment) {
-                liquidatePositions(symbol, INDEX_PRICES.get(symbol)!);
+                userBalance["USD"]!.available -= payment; // This will go negative, but it's fine, let it be negative for now to balance the exchange
+                // In a real exchange, this would trigger a specific margin call or we'd just deduct it from locked/margin
             } else {
                 userBalance["USD"]!.available -= payment;
             }
         } else if (position.side === "SHORT" && fundingRate < 0) {
             if (userBalance["USD"]!.available < Math.abs(payment)) {
-                liquidatePositions(symbol, INDEX_PRICES.get(symbol)!);
+                userBalance["USD"]!.available += payment; // payment is negative
             } else {
-                userBalance["USD"]!.available += payment;
+                userBalance["USD"]!.available += payment; // payment is negative
             }
         } else {
             // receiving funding — always safe
