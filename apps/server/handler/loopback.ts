@@ -43,7 +43,7 @@ async function waitForResponse() {
       [
         { key: `response:${backendId}`, id: lastResponseId },
       ],
-      { BLOCK: 0, COUNT: 1 },
+      { BLOCK: 0, COUNT: 100 },
     );
 
     if (!streams) continue;

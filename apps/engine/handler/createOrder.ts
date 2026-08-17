@@ -15,8 +15,15 @@ export function handleCreateOrder(payload: createOrderInput) {
     const { userId, type, side, symbol, price, qty, leverage, slippage } = payload;
     validateOrder(payload);
 
-    const usd = BALANCES.get(userId)?.USD;
-    if (!usd) throw new Error("Wallet not initialised");
+    let userBalance = BALANCES.get(userId);
+    if (!userBalance) {
+        userBalance = { USD: { available: 0, locked: 0 } };
+        BALANCES.set(userId, userBalance);
+    }
+    if (!userBalance.USD) {
+        userBalance.USD = { available: 0, locked: 0 };
+    }
+    const usd = userBalance.USD;
 
     const orderBook = ORDERBOOK.get(symbol) ?? { bids: new Map(), asks: new Map() };
     ORDERBOOK.set(symbol, orderBook);
