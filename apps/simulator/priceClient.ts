@@ -1,6 +1,8 @@
 // Fetches live index prices from Binance REST API
 // Also listens to platform WebSocket for real-time updates (if available)
 
+import { WS_URL } from "./constants";
+
 const BINANCE_SYMBOLS: Record<string, string> = {
   BTCUSD: "BTCUSDT",
   ETHUSD: "ETHUSDT",
@@ -16,11 +18,15 @@ let restTimer: ReturnType<typeof setInterval> | null = null;
 function connectWs() {
   if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
-  ws = new WebSocket("ws://localhost:3002");
+  try {
+    ws = new WebSocket(WS_URL);
 
-  ws.onopen = () => {
-    console.log("  ✓ Connected to platform WebSocket (ws://localhost:3002)");
-  };
+    ws.onopen = () => {
+      console.log(`  ✓ Connected to platform WebSocket (${WS_URL})`);
+    };
+  } catch (err) {
+    scheduleReconnect();
+  }
 
   ws.onmessage = (event: MessageEvent) => {
     try {

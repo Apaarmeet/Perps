@@ -5,6 +5,8 @@ import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
 import "dotenv/config"
 
+import { loopback } from "../handler/loopback";
+
 export async function signup(req: Request, res: Response){
     const body = createUserSchema.safeParse(req.body)
 
@@ -38,6 +40,11 @@ export async function signup(req: Request, res: Response){
             password: hashedpassword
         }
     })
+
+    // Initialize in-memory trading balance with $10,000 paper funds
+    try {
+        await loopback("onRamp", { userId: user.id, amount: 10000 });
+    } catch {}
 
     const jwtsecret = process.env.JWT_SECRET as unknown as string
     const token = jwt.sign({ userId: user.id }, jwtsecret)

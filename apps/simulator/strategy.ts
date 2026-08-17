@@ -11,10 +11,6 @@ function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function randInt(min: number, max: number): number {
-  return Math.floor(rand(min, max + 1));
-}
-
 export interface TradeResult {
   trader: string;
   action: "FILLED" | "PLACED" | "CANCELLED" | "FAILED";
@@ -31,7 +27,8 @@ export interface TradeResult {
 // ─── Helpers ──────────────────────────────────────────────────
 
 function computeQty(price: number, leverage: number, notionalUsd: number): number {
-  return +((notionalUsd * leverage) / price).toFixed(6);
+  if (price <= 0) return 0.001;
+  return +((notionalUsd * leverage) / price).toFixed(4);
 }
 
 async function place(
@@ -74,97 +71,108 @@ async function getOpen(trader: Trader, symbol: string): Promise<any[]> {
   }
 }
 
+async function getPosition(trader: Trader, symbol: string): Promise<any | null> {
+  try {
+    const res = await request(`/positions/${symbol}`, {
+      method: "GET",
+      token: trader.token,
+    }) as any;
+    return res?.position || null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── 1. Market Maker (Avellaneda–Stoikov style) ─────────────
-// Places bid + ask around mid-price with inventory-skewed reservation price
-// Cancels stale orders and re-quotes periodically
-const MM_NOTIONAL = 2000;
+// Maintains tight 2-3 level bid/ask ladder and cancels old quotes
+const MM_NOTIONAL = 2500;
 const MM_LEVERAGE = 2;
 
 async function runMarketMaker(
   trader: Trader,
   symbol: Symbol,
   midPrice: number,
-  inventory: number,  // positive = net long, negative = net short
+  inventory: number,
 ): Promise<TradeResult[]> {
   const results: TradeResult[] = [];
 
-  // Reservation price shifts based on inventory (skew toward flat)
-  // inventory = 0 → reservation = midPrice
-  // inventory = +1 BTC → reservation shifts down to encourage selling
-  const spread = midPrice * pick([0.0008, 0.001, 0.0015, 0.002]);
-  const skew = inventory * midPrice * 0.0005;  // 0.05% per BTC inventory
+  // 1. Cancel previous quotes to keep orderbook constant and tight
+  const openOrders = await getOpen(trader, symbol);
+  for (const order of openOrders) {
+    const ok = await cancel(trader, order.orderId);
+    if (ok) {
+      results.push({
+        trader: trader.email,
+        action: "CANCELLED",
+        side: order.side ?? "LONG",
+        type: "limit",
+        symbol,
+        qty: order.qty ?? 0,
+        price: order.price ?? "unknown",
+        leverage: order.leverage ?? MM_LEVERAGE,
+        filled: false,
+      });
+    }
+  }
+
+  // 2. Quote 2 depth levels on both sides
+  const spreads = [0.0005, 0.0015]; // 0.05% and 0.15% from mid
+  const skew = inventory * midPrice * 0.0005;
   const reservationPrice = midPrice - skew;
 
-  const bidPrice = +(reservationPrice - spread / 2).toFixed(1);
-  const askPrice = +(reservationPrice + spread / 2).toFixed(1);
-  const qty = computeQty(midPrice, MM_LEVERAGE, rand(MM_NOTIONAL * 0.5, MM_NOTIONAL * 1.5));
+  for (let i = 0; i < spreads.length; i++) {
+    const spread = midPrice * spreads[i]!;
+    const bidPrice = +(reservationPrice - spread / 2).toFixed(1);
+    const askPrice = +(reservationPrice + spread / 2).toFixed(1);
+    const notional = MM_NOTIONAL * (1 + i * 0.5);
+    const qty = computeQty(midPrice, MM_LEVERAGE, rand(notional * 0.8, notional * 1.2));
 
-  // Place bid
-  const bid = await place(trader, {
-    type: "limit",
-    side: "LONG",
-    symbol,
-    price: bidPrice,
-    qty,
-    leverage: MM_LEVERAGE,
-    slippage: 0.5,
-  });
-  results.push({
-    trader: trader.email,
-    action: bid.error ? "FAILED" : bid.result?.order?.status === "filled" ? "FILLED" : "PLACED",
-    side: "LONG",
-    type: "limit",
-    symbol,
-    qty,
-    price: bidPrice,
-    leverage: MM_LEVERAGE,
-    filled: bid.result?.order?.status === "filled",
-    error: bid.error,
-  });
+    if (qty <= 0 || bidPrice <= 0 || askPrice <= 0) continue;
 
-  // Place ask
-  const ask = await place(trader, {
-    type: "limit",
-    side: "SHORT",
-    symbol,
-    price: askPrice,
-    qty,
-    leverage: MM_LEVERAGE,
-    slippage: 0.5,
-  });
-  results.push({
-    trader: trader.email,
-    action: ask.error ? "FAILED" : ask.result?.order?.status === "filled" ? "FILLED" : "PLACED",
-    side: "SHORT",
-    type: "limit",
-    symbol,
-    qty,
-    price: askPrice,
-    leverage: MM_LEVERAGE,
-    filled: ask.result?.order?.status === "filled",
-    error: ask.error,
-  });
-
-  return results;
-}
-
-async function cancelStaleMM(trader: Trader, symbol: Symbol): Promise<TradeResult[]> {
-  const results: TradeResult[] = [];
-  const orders = await getOpen(trader, symbol);
-
-  for (const order of orders.slice(0, 4)) {
-    const ok = await cancel(trader, order.orderId);
+    // Place Bid
+    const bid = await place(trader, {
+      type: "limit",
+      side: "LONG",
+      symbol,
+      price: bidPrice,
+      qty,
+      leverage: MM_LEVERAGE,
+      slippage: 0.5,
+    });
     results.push({
       trader: trader.email,
-      action: ok ? "CANCELLED" : "FAILED",
-      side: order.side ?? "LONG",
+      action: bid.error ? "FAILED" : bid.result?.order?.status === "filled" ? "FILLED" : "PLACED",
+      side: "LONG",
       type: "limit",
       symbol,
-      qty: order.qty ?? 0,
-      price: order.price ?? "unknown",
-      leverage: order.leverage ?? 1,
-      filled: false,
-      error: ok ? undefined : "cancel failed",
+      qty,
+      price: bidPrice,
+      leverage: MM_LEVERAGE,
+      filled: bid.result?.order?.status === "filled",
+      error: bid.error,
+    });
+
+    // Place Ask
+    const ask = await place(trader, {
+      type: "limit",
+      side: "SHORT",
+      symbol,
+      price: askPrice,
+      qty,
+      leverage: MM_LEVERAGE,
+      slippage: 0.5,
+    });
+    results.push({
+      trader: trader.email,
+      action: ask.error ? "FAILED" : ask.result?.order?.status === "filled" ? "FILLED" : "PLACED",
+      side: "SHORT",
+      type: "limit",
+      symbol,
+      qty,
+      price: askPrice,
+      leverage: MM_LEVERAGE,
+      filled: ask.result?.order?.status === "filled",
+      error: ask.error,
     });
   }
 
@@ -172,58 +180,103 @@ async function cancelStaleMM(trader: Trader, symbol: Symbol): Promise<TradeResul
 }
 
 // ─── 2. Momentum Trader ──────────────────────────────────────
-// Tracks short-term trend. Uses limit orders to add depth.
-// Tight offset so they often get filled, acting like aggressive makers.
-const MOMENTUM_NOTIONAL = 5000;
+const MOMENTUM_NOTIONAL = 4000;
 const MOMENTUM_LEVERAGES = [3, 5, 10];
 
 async function runMomentum(
   trader: Trader,
   symbol: Symbol,
   midPrice: number,
-  trend: number,  // positive = uptrend, negative = downtrend
-): Promise<TradeResult> {
-  // Only follow trend if it's significant; otherwise random
-  const side =
-    trend > 0.001 ? "LONG" :
-    trend < -0.001 ? "SHORT" :
-    pick(["LONG", "SHORT"] as const);
+  trend: number,
+): Promise<TradeResult[]> {
+  const results: TradeResult[] = [];
+
+  // Check if position exists and can be closed/taken profit
+  const pos = await getPosition(trader, symbol);
+  if (pos && pos.qty > 0 && Math.random() < 0.4) {
+    const exitSide = pos.side === "LONG" ? "SHORT" : "LONG";
+    const exit = await place(trader, {
+      type: "market",
+      side: exitSide,
+      symbol,
+      price: null,
+      qty: pos.qty,
+      leverage: pos.leverage || 5,
+      slippage: 1,
+    });
+    results.push({
+      trader: trader.email,
+      action: exit.error ? "FAILED" : "FILLED",
+      side: exitSide,
+      type: "market (EXIT)",
+      symbol,
+      qty: pos.qty,
+      price: "market",
+      leverage: pos.leverage || 5,
+      filled: !exit.error,
+      error: exit.error,
+    });
+    return results;
+  }
+
+  const side = trend > 0.0005 ? "LONG" : trend < -0.0005 ? "SHORT" : pick(["LONG", "SHORT"] as const);
   const leverage = pick(MOMENTUM_LEVERAGES);
   const qty = computeQty(midPrice, leverage, rand(MOMENTUM_NOTIONAL * 0.5, MOMENTUM_NOTIONAL * 1.5));
 
-  // Limit at 0.05% offset — aggressive, adds depth, often gets filled
-  const offset = midPrice * 0.0005;
-  const limitPrice = side === "LONG"
-    ? +(midPrice + offset).toFixed(1)   // slightly above mid to get filled
-    : +(midPrice - offset).toFixed(1);  // slightly below mid to get filled
+  // 60% market order to cross the spread and generate fills
+  const isMarket = Math.random() < 0.6;
+  if (isMarket) {
+    const mkt = await place(trader, {
+      type: "market",
+      side,
+      symbol,
+      price: null,
+      qty,
+      leverage,
+      slippage: 1,
+    });
+    results.push({
+      trader: trader.email,
+      action: mkt.error ? "FAILED" : "FILLED",
+      side,
+      type: "market",
+      symbol,
+      qty,
+      price: "market",
+      leverage,
+      filled: !mkt.error,
+      error: mkt.error,
+    });
+  } else {
+    const offset = midPrice * 0.0003;
+    const limitPrice = side === "LONG" ? +(midPrice + offset).toFixed(1) : +(midPrice - offset).toFixed(1);
+    const limit = await place(trader, {
+      type: "limit",
+      side,
+      symbol,
+      price: limitPrice,
+      qty,
+      leverage,
+      slippage: 0.5,
+    });
+    results.push({
+      trader: trader.email,
+      action: limit.error ? "FAILED" : limit.result?.order?.status === "filled" ? "FILLED" : "PLACED",
+      side,
+      type: "limit",
+      symbol,
+      qty,
+      price: limitPrice,
+      leverage,
+      filled: limit.result?.order?.status === "filled",
+      error: limit.error,
+    });
+  }
 
-  const { result, error } = await place(trader, {
-    type: "limit",
-    side,
-    symbol,
-    price: limitPrice,
-    qty,
-    leverage,
-    slippage: 0.5,
-  });
-
-  return {
-    trader: trader.email,
-    action: error ? "FAILED" : result?.order?.status === "filled" ? "FILLED" : "PLACED",
-    side,
-    type: "limit",
-    symbol,
-    qty,
-    price: limitPrice,
-    leverage,
-    filled: result?.order?.status === "filled",
-    error,
-  };
+  return results;
 }
 
 // ─── 3. Mean Reversion Trader ────────────────────────────────
-// Buys when price is below MA, sells when above.
-// Uses limit orders at a discount/premium to mid.
 const REVERSION_NOTIONAL = 3000;
 const REVERSION_LEVERAGES = [2, 3, 5];
 
@@ -231,36 +284,43 @@ async function runReversion(
   trader: Trader,
   symbol: Symbol,
   midPrice: number,
-  deviation: number,  // percent deviation from MA. positive = price above MA
-): Promise<TradeResult> {
-  // deviation > 2% → sell (price too high, expect reversion down)
-  // deviation < -2% → buy (price too low, expect reversion up)
-  const shouldSell = deviation > 0.02;
-  const shouldBuy = deviation < -0.02;
+  deviation: number,
+): Promise<TradeResult[]> {
+  const results: TradeResult[] = [];
 
-  if (!shouldSell && !shouldBuy) {
-    return {
-      trader: trader.email,
-      action: "PLACED",
-      side: "NONE",
-      type: "none",
+  const pos = await getPosition(trader, symbol);
+  if (pos && pos.qty > 0 && Math.random() < 0.4) {
+    const exitSide = pos.side === "LONG" ? "SHORT" : "LONG";
+    const exit = await place(trader, {
+      type: "market",
+      side: exitSide,
       symbol,
-      qty: 0,
-      price: "none",
-      leverage: 1,
-      filled: false,
-    };
+      price: null,
+      qty: pos.qty,
+      leverage: pos.leverage || 3,
+      slippage: 1,
+    });
+    results.push({
+      trader: trader.email,
+      action: exit.error ? "FAILED" : "FILLED",
+      side: exitSide,
+      type: "market (EXIT)",
+      symbol,
+      qty: pos.qty,
+      price: "market",
+      leverage: pos.leverage || 3,
+      filled: !exit.error,
+      error: exit.error,
+    });
+    return results;
   }
 
-  const side = shouldSell ? "SHORT" : "LONG";
+  const side = deviation > 0.01 ? "SHORT" : "LONG";
   const leverage = pick(REVERSION_LEVERAGES);
-
-  // Place limit order away from mid to get filled on a retrace
-  const offset = midPrice * 0.003;  // 0.3% away
-  const limitPrice = side === "LONG"
-    ? +(midPrice - offset).toFixed(1)
-    : +(midPrice + offset).toFixed(1);
   const qty = computeQty(midPrice, leverage, rand(REVERSION_NOTIONAL * 0.5, REVERSION_NOTIONAL * 1.5));
+
+  const offset = midPrice * 0.002;
+  const limitPrice = side === "LONG" ? +(midPrice - offset).toFixed(1) : +(midPrice + offset).toFixed(1);
 
   const { result, error } = await place(trader, {
     type: "limit",
@@ -272,7 +332,7 @@ async function runReversion(
     slippage: 0.5,
   });
 
-  return {
+  results.push({
     trader: trader.email,
     action: error ? "FAILED" : result?.order?.status === "filled" ? "FILLED" : "PLACED",
     side,
@@ -283,13 +343,14 @@ async function runReversion(
     leverage,
     filled: result?.order?.status === "filled",
     error,
-  };
+  });
+
+  return results;
 }
 
 // ─── 4. Scalper ──────────────────────────────────────────────
-// Quick in-and-out with limit orders (adds depth, may get filled)
 const SCALP_NOTIONAL = 2000;
-const SCALP_LEVERAGES = [10, 15, 20];
+const SCALP_LEVERAGES = [5, 10, 15];
 
 async function runScalp(
   trader: Trader,
@@ -301,31 +362,26 @@ async function runScalp(
   const leverage = pick(SCALP_LEVERAGES);
   const qty = computeQty(midPrice, leverage, rand(SCALP_NOTIONAL, SCALP_NOTIONAL * 2));
 
-  // Enter with limit at tight 0.04% offset
-  const offset = midPrice * 0.0004;
-  const entryPrice = direction === "LONG"
-    ? +(midPrice + offset).toFixed(1)
-    : +(midPrice - offset).toFixed(1);
-
   const entry = await place(trader, {
-    type: "limit",
+    type: "market",
     side: direction,
     symbol,
-    price: entryPrice,
+    price: null,
     qty,
     leverage,
-    slippage: 0.5,
+    slippage: 1,
   });
+
   results.push({
     trader: trader.email,
-    action: entry.error ? "FAILED" : entry.result?.order?.status === "filled" ? "FILLED" : "PLACED",
+    action: entry.error ? "FAILED" : "FILLED",
     side: direction,
-    type: "limit",
+    type: "market",
     symbol,
     qty,
-    price: entryPrice,
+    price: "market",
     leverage,
-    filled: entry.result?.order?.status === "filled",
+    filled: !entry.error,
     error: entry.error,
   });
 
@@ -341,57 +397,102 @@ async function runScalpExit(
   leverage: number,
 ): Promise<TradeResult> {
   const exitSide = entrySide === "LONG" ? "SHORT" : "LONG";
-  const offset = midPrice * 0.0004;
-  const exitPrice = exitSide === "LONG"
-    ? +(midPrice + offset).toFixed(1)
-    : +(midPrice - offset).toFixed(1);
 
   const exit = await place(trader, {
-    type: "limit",
+    type: "market",
     side: exitSide,
     symbol,
-    price: exitPrice,
+    price: null,
     qty: entryQty,
     leverage,
-    slippage: 0.5,
+    slippage: 1,
   });
 
   return {
     trader: trader.email,
-    action: exit.error ? "FAILED" : exit.result?.order?.status === "filled" ? "FILLED" : "PLACED",
+    action: exit.error ? "FAILED" : "FILLED",
     side: exitSide,
-    type: "limit",
+    type: "market (EXIT)",
     symbol,
     qty: entryQty,
-    price: exitPrice,
+    price: "market",
     leverage,
-    filled: exit.result?.order?.status === "filled",
+    filled: !exit.error,
     error: exit.error,
   };
 }
 
 // ─── 5. Retail Trader ────────────────────────────────────────
-// Random small orders, mostly market, small sizes
-const RETAIL_NOTIONAL = 500;
+const RETAIL_NOTIONAL = 800;
 const RETAIL_LEVERAGES = [1, 2, 3];
 
 async function runRetail(
   trader: Trader,
   symbol: Symbol,
   midPrice: number,
-): Promise<TradeResult> {
-  const isLimit = Math.random() < 0.7;  // 70% limit adds depth, 30% market for occasional fills
+): Promise<TradeResult[]> {
+  const results: TradeResult[] = [];
+
+  // Check if position exists and close occasionally
+  const pos = await getPosition(trader, symbol);
+  if (pos && pos.qty > 0 && Math.random() < 0.5) {
+    const exitSide = pos.side === "LONG" ? "SHORT" : "LONG";
+    const exit = await place(trader, {
+      type: "market",
+      side: exitSide,
+      symbol,
+      price: null,
+      qty: pos.qty,
+      leverage: pos.leverage || 2,
+      slippage: 1,
+    });
+    results.push({
+      trader: trader.email,
+      action: exit.error ? "FAILED" : "FILLED",
+      side: exitSide,
+      type: "market (EXIT)",
+      symbol,
+      qty: pos.qty,
+      price: "market",
+      leverage: pos.leverage || 2,
+      filled: !exit.error,
+      error: exit.error,
+    });
+    return results;
+  }
+
   const side = pick(["LONG", "SHORT"] as const);
   const leverage = pick(RETAIL_LEVERAGES);
-  const qty = computeQty(midPrice, leverage, rand(RETAIL_NOTIONAL * 0.3, RETAIL_NOTIONAL * 2));
+  const qty = computeQty(midPrice, leverage, rand(RETAIL_NOTIONAL * 0.4, RETAIL_NOTIONAL * 1.5));
 
-  if (isLimit) {
-    const offset = midPrice * rand(0.001, 0.005);
-    const limitPrice = side === "LONG"
-      ? +(midPrice - offset).toFixed(1)
-      : +(midPrice + offset).toFixed(1);
-
-    const { result, error } = await place(trader, {
+  // 60% Market order, 40% Limit
+  const isMarket = Math.random() < 0.6;
+  if (isMarket) {
+    const res = await place(trader, {
+      type: "market",
+      side,
+      symbol,
+      price: null,
+      qty,
+      leverage,
+      slippage: 1,
+    });
+    results.push({
+      trader: trader.email,
+      action: res.error ? "FAILED" : "FILLED",
+      side,
+      type: "market",
+      symbol,
+      qty,
+      price: "market",
+      leverage,
+      filled: !res.error,
+      error: res.error,
+    });
+  } else {
+    const offset = midPrice * rand(0.0005, 0.002);
+    const limitPrice = side === "LONG" ? +(midPrice - offset).toFixed(1) : +(midPrice + offset).toFixed(1);
+    const res = await place(trader, {
       type: "limit",
       side,
       symbol,
@@ -400,43 +501,21 @@ async function runRetail(
       leverage,
       slippage: 0.5,
     });
-
-    return {
+    results.push({
       trader: trader.email,
-      action: error ? "FAILED" : result?.order?.status === "filled" ? "FILLED" : "PLACED",
+      action: res.error ? "FAILED" : res.result?.order?.status === "filled" ? "FILLED" : "PLACED",
       side,
       type: "limit",
       symbol,
       qty,
       price: limitPrice,
       leverage,
-      filled: result?.order?.status === "filled",
-      error,
-    };
+      filled: res.result?.order?.status === "filled",
+      error: res.error,
+    });
   }
 
-  const { result, error } = await place(trader, {
-    type: "market",
-    side,
-    symbol,
-    price: null,
-    qty,
-    leverage,
-    slippage: pick([0.3, 0.5, 1]),
-  });
-
-  return {
-    trader: trader.email,
-    action: error ? "FAILED" : "FILLED",
-    side,
-    type: "market",
-    symbol,
-    qty,
-    price: "market",
-    leverage,
-    filled: !error,
-    error,
-  };
+  return results;
 }
 
 // ─── Public entry points ─────────────────────────────────────
@@ -447,7 +526,7 @@ export async function runStrategy(
   midPrice: number,
   traderIndex: number,
   extra: { trend?: number; deviation?: number; inventory?: number } = {},
-): Promise<TradeResult | TradeResult[]> {
+): Promise<TradeResult[]> {
   switch (traderIndex) {
     case 0:
     case 1:
@@ -463,7 +542,6 @@ export async function runStrategy(
     case 8:
       return runScalp(trader, symbol, midPrice);
     case 9:
-      return runRetail(trader, symbol, midPrice);
     default:
       return runRetail(trader, symbol, midPrice);
   }
@@ -486,8 +564,26 @@ export async function cancelStaleOrders(
   symbol: Symbol,
   traderIndex: number,
 ): Promise<TradeResult[]> {
-  if (traderIndex < 4) {
-    return cancelStaleMM(trader, symbol);
+  const openOrders = await getOpen(trader, symbol);
+  if (openOrders.length <= 2) return [];
+
+  const results: TradeResult[] = [];
+  // Cancel older orders exceeding 2 open orders per trader
+  for (const order of openOrders.slice(2)) {
+    const ok = await cancel(trader, order.orderId);
+    if (ok) {
+      results.push({
+        trader: trader.email,
+        action: "CANCELLED",
+        side: order.side ?? "LONG",
+        type: "limit",
+        symbol,
+        qty: order.qty ?? 0,
+        price: order.price ?? "unknown",
+        leverage: order.leverage ?? 1,
+        filled: false,
+      });
+    }
   }
-  return [];
+  return results;
 }

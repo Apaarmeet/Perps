@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
-import net from "net";
+import { WebSocketServer, WebSocket } from "ws";
+import { getRedisClient } from "@repo/redis";
 import { engineRouter } from "./routes/engine.routes";
 import { userRouter } from "./routes/user.routes";
 
@@ -23,31 +24,33 @@ app.use(engineRouter);
 
 const server = http.createServer(app);
 
-// Proxy WebSocket upgrade requests arriving on public port to internal WS gateway (port 3002)
-server.on("upgrade", (req, socket, head) => {
-  const wsTargetPort = parseInt(process.env.WS_PORT || "3002", 10);
-  const proxySocket = net.connect(wsTargetPort, "127.0.0.1", () => {
-    proxySocket.write(`${req.method} ${req.url} HTTP/${req.httpVersion}\r\n`);
-    for (let i = 0; i < req.rawHeaders.length; i += 2) {
-      proxySocket.write(`${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}\r\n`);
-    }
-    proxySocket.write("\r\n");
-    if (head && head.length > 0) {
-      proxySocket.write(head);
-    }
-    proxySocket.pipe(socket);
-    socket.pipe(proxySocket);
-  });
+// Native WebSocket server attached directly to the public HTTP server (Port 3000)
+const wss = new WebSocketServer({ server });
 
-  proxySocket.on("error", (err) => {
-    console.error("WS upgrade forwarding error:", err.message);
-    socket.destroy();
-  });
-
-  socket.on("error", () => {
-    proxySocket.destroy();
+wss.on("connection", (ws) => {
+  console.log(`Frontend client connected. Total clients: ${wss.clients.size}`);
+  ws.on("close", () => {
+    console.log(`Frontend client disconnected. Total clients: ${wss.clients.size}`);
   });
 });
+
+async function startEngineSubscriber() {
+  try {
+    const subscriber = await getRedisClient();
+    await subscriber.subscribe("engine-data", (message) => {
+      for (const client of wss.clients) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      }
+    });
+    console.log("WebSocket engine-data subscriber active");
+  } catch (err) {
+    console.error("Failed to subscribe to engine-data:", err);
+  }
+}
+
+void startEngineSubscriber();
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

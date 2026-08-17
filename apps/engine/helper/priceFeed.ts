@@ -7,14 +7,16 @@ const priceFeeder = await getRedisClient();
 const writeClient = await getRedisClient();
 
 export async function startPriceFeed() {
+    let lastId = "$";
     while (true) {
         const streams = await priceFeeder.xRead(
-            [{ key: "price-feederStream", id: "$" }],
+            [{ key: "price-feederStream", id: lastId }],
             { BLOCK: 0 }
         );
 
         for (const stream of streams ?? []) {
             for (const msg of stream.messages) {
+                lastId = msg.id;
                 const { symbol, price } = msg.message;
                 const parsedSymbol = symbol as string;
                 const parsedPrice = parseFloat(price as string);

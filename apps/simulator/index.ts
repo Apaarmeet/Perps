@@ -86,16 +86,13 @@ async function waitForInitialPrices(timeoutMs = 15000): Promise<boolean> {
 // ─── Auto on-ramp ────────────────────────────────────────────
 async function autoOnRamp(traders: Trader[]) {
   while (true) {
-    await sleep(rand(8000, 12000));
+    await sleep(rand(15000, 30000));
     for (const trader of traders) {
       try {
-        await fetch("http://localhost:3000/onRamp", {
+        await request("/onRamp", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${trader.token}`,
-          },
           body: JSON.stringify({ amount: 50000 }),
+          token: trader.token,
         });
       } catch {}
     }
