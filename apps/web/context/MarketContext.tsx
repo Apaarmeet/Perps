@@ -11,6 +11,7 @@ import {
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import type { MarketSymbol } from "@/types/trading";
 import { SUPPORTED_MARKETS } from "@/lib/constants";
+import { setWebSocketMarket } from "@/lib/ws";
 
 interface MarketState {
   market: MarketSymbol;
@@ -35,12 +36,16 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (marketParam && SUPPORTED_MARKETS.includes(marketParam as never)) {
       setMarketState(marketParam as MarketSymbol);
+      setWebSocketMarket(marketParam);
+    } else {
+      setWebSocketMarket(initialMarket);
     }
-  }, [marketParam]);
+  }, [marketParam, initialMarket]);
 
   const setMarket = useCallback(
     (m: MarketSymbol) => {
       setMarketState(m);
+      setWebSocketMarket(m);
       const params = new URLSearchParams(searchParams.toString());
       params.set("market", m);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });

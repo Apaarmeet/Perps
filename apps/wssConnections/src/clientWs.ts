@@ -1,12 +1,35 @@
 import { getRedisClient } from "@repo/redis";
 
-const clients = new Set<Bun.ServerWebSocket<undefined>>();
+const clients = new Map<Bun.ServerWebSocket<unknown>, Set<string>>();
 
 const subscriber = await getRedisClient();
 await subscriber.subscribe("engine-data", (message) => {
-    for (const ws of clients) {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(message);
+    try {
+        const parsed = JSON.parse(message);
+        let symbol = parsed.symbol;
+        
+        if (!symbol && parsed.data) {
+            try {
+                const dataObj = typeof parsed.data === "string" ? JSON.parse(parsed.data) : parsed.data;
+                symbol = dataObj.symbol || dataObj.candle?.symbol || dataObj.order?.symbol || dataObj.fill?.symbol;
+                if (!symbol && dataObj.key) symbol = dataObj.key.split(":")[0];
+            } catch {}
+        }
+
+        const isGlobal = !symbol;
+
+        for (const [ws, subs] of clients) {
+            if (ws.readyState === WebSocket.OPEN) {
+                if (isGlobal || subs.has(symbol)) {
+                    ws.send(message);
+                }
+            }
+        }
+    } catch (err) {
+        for (const [ws] of clients) {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+            }
         }
     }
 });
@@ -21,14 +44,25 @@ Bun.serve({
     },
     websocket: {
         open(ws) {
-            clients.add(ws);
+            clients.set(ws, new Set());
             console.log(`Frontend client connected. Total: ${clients.size}`);
         },
         close(ws) {
             clients.delete(ws);
             console.log(`Frontend client disconnected. Total: ${clients.size}`);
         },
-        message(ws, message) {},
+        message(ws, message) {
+            try {
+                const parsed = JSON.parse(message as string);
+                if (parsed.action === "subscribe" && parsed.market) {
+                    const subs = clients.get(ws);
+                    if (subs) {
+                        subs.clear();
+                        subs.add(parsed.market);
+                    }
+                }
+            } catch {}
+        },
     },
 });
 

@@ -5,12 +5,28 @@ type Listener = (data: unknown) => void;
 const listeners = new Map<string, Set<Listener>>();
 
 let ws: WebSocket | null = null;
+let activeMarket: string | null = null;
+
+function sendSubscription() {
+  if (ws && ws.readyState === WebSocket.OPEN && activeMarket) {
+    ws.send(JSON.stringify({ action: "subscribe", market: activeMarket }));
+  }
+}
+
+export function setWebSocketMarket(market: string) {
+  activeMarket = market;
+  sendSubscription();
+}
 
 function connect(): WebSocket {
   if (ws && ws.readyState === WebSocket.OPEN) return ws;
   if (ws && ws.readyState === WebSocket.CONNECTING) return ws;
 
   ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    sendSubscription();
+  };
 
   ws.onmessage = (event) => {
     try {
