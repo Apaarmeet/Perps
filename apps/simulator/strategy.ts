@@ -465,8 +465,8 @@ async function runRetail(
   const leverage = pick(RETAIL_LEVERAGES);
   const qty = computeQty(midPrice, leverage, rand(RETAIL_NOTIONAL * 0.4, RETAIL_NOTIONAL * 1.5));
 
-  // 60% Market order, 40% Limit
-  const isMarket = Math.random() < 0.6;
+  // 50% Market order, 50% Limit
+  const isMarket = Math.random() < 0.5;
   if (isMarket) {
     const res = await place(trader, {
       type: "market",

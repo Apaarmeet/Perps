@@ -213,7 +213,7 @@ console.log(`${colors.cyan}${colors.bold}
 ║  MOM1/MOM2  Momentum       (limit @ 0.05%)       ║
 ║  REV1/REV2  Mean Reversion (limit @ 0.3%)        ║
 ║  SCALP      Scalper        (limit @ 0.04%)       ║
-║  RETAIL     Retail         (70% limit / 30% mkt) ║
+║  RETAIL     Retail         (50% limit / 50% mkt) ║
 ╚═══════════════════════════════════════════════════╝
 ${colors.reset}`);
 

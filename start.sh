@@ -8,7 +8,16 @@ if [ -z "$REDIS_URL" ] || [ "$REDIS_URL" = "redis://127.0.0.1:6379" ] || [ "$RED
   echo "Starting embedded local Redis server..."
   redis-server --daemonize yes --protected-mode no
   export REDIS_URL="redis://127.0.0.1:6379"
-  sleep 1
+  
+  # Wait until Redis is fully accepting connections
+  echo "Waiting for Redis to be ready..."
+  for i in $(seq 1 30); do
+    if redis-cli ping >/dev/null 2>&1; then
+      echo "Redis is ready."
+      break
+    fi
+    sleep 0.1
+  done
 fi
 
 # 2. Ensure snapshot directory exists for matching engine
