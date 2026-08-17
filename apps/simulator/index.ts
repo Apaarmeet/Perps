@@ -86,12 +86,12 @@ async function waitForInitialPrices(timeoutMs = 15000): Promise<boolean> {
 // ─── Auto on-ramp ────────────────────────────────────────────
 async function autoOnRamp(traders: Trader[]) {
   while (true) {
-    await sleep(rand(15000, 30000));
+    await sleep(rand(8000, 15000));
     for (const trader of traders) {
       try {
         await request("/onRamp", {
           method: "POST",
-          body: JSON.stringify({ amount: 50000 }),
+          body: JSON.stringify({ amount: 250000 }),
           token: trader.token,
         });
       } catch {}
@@ -143,8 +143,9 @@ async function runTrader(trader: Trader, id: number) {
       const arr = Array.isArray(results) ? results : [results];
       for (const r of arr) {
         const color = r.filled ? colors.green : r.action === "FAILED" ? colors.red : colors.yellow;
+        const errSuffix = r.error ? ` (${r.error})` : "";
         log(r.filled ? "✓" : "○", color, TRADER_LABELS[id],
-          `${r.action} ${r.side} ${r.type} ${r.symbol} qty=${r.qty.toFixed(4)} lev=${r.leverage}x @ ${r.price}`);
+          `${r.action} ${r.side} ${r.type} ${r.symbol} qty=${r.qty.toFixed(4)} lev=${r.leverage}x @ ${r.price}${errSuffix}`);
       }
 
       await sleep(rand(2000, 4000));
@@ -167,8 +168,9 @@ async function runTrader(trader: Trader, id: number) {
         const exit = await runExit(trader, symbol, midPrice, id, pos.side, pos.qty, pos.leverage);
         scalperPositions.delete(trader.email);
         const color = exit.filled ? colors.green : colors.red;
+        const errSuffix = exit.error ? ` (${exit.error})` : "";
         log("EXIT", color, TRADER_LABELS[id],
-          `${exit.action} ${exit.side} ${symbol} qty=${exit.qty.toFixed(4)}`);
+          `${exit.action} ${exit.side} ${symbol} qty=${exit.qty.toFixed(4)}${errSuffix}`);
         await sleep(rand(1000, 3000));
         continue;
       }
@@ -191,8 +193,9 @@ async function runTrader(trader: Trader, id: number) {
         if (r.action === "PLACED" && r.type === "none") continue;
         const color = r.filled ? colors.green : r.action === "FAILED" ? colors.red : colors.yellow;
         const emoji = r.type === "market" ? "⚡" : "○";
+        const errSuffix = r.error ? ` (${r.error})` : "";
         log(emoji, color, TRADER_LABELS[id],
-          `${r.action} ${r.side} ${r.type} ${r.symbol} qty=${r.qty.toFixed(4)} lev=${r.leverage}x @ ${r.price}`);
+          `${r.action} ${r.side} ${r.type} ${r.symbol} qty=${r.qty.toFixed(4)} lev=${r.leverage}x @ ${r.price}${errSuffix}`);
       }
 
       await sleep(rand(1000, 4000));

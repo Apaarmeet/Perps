@@ -39,7 +39,7 @@ async function seedUser(name: string): Promise<Trader> {
 
     await request("/onRamp", {
       method: "POST",
-      body: JSON.stringify({ amount: 100000 }),
+      body: JSON.stringify({ amount: 1000000 }),
       token: signup.token,
     });
 
@@ -55,7 +55,7 @@ async function seedUser(name: string): Promise<Trader> {
     try {
       await request("/onRamp", {
         method: "POST",
-        body: JSON.stringify({ amount: 100000 }),
+        body: JSON.stringify({ amount: 1000000 }),
         token: signin.token,
       });
     } catch {}
