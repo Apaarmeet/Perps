@@ -59,7 +59,7 @@ export function OrderHistoryTable() {
                   </td>
                 </tr>
               ) : (
-                marketOrders.map((order) => (
+                marketOrders.slice(0, 50).map((order) => (
                   <tr
                     key={order.orderId}
                     className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors"
@@ -103,7 +103,7 @@ export function OrderHistoryTable() {
                   </td>
                 </tr>
               ) : (
-                fills.map((fill) => (
+                fills.slice(0, 50).map((fill) => (
                   <tr
                     key={fill.fillId}
                     className="border-b border-border-default/50 hover:bg-bg-hover/50 transition-colors"

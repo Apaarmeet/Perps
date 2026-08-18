@@ -1,15 +1,19 @@
-import { ORDERS, type getOpenOrdersInput } from "../exchangeStore"
+import { ORDERS, USER_OPEN_ORDERS, type getOpenOrdersInput } from "../exchangeStore"
 
 export function handleGetOpenOrder(payload: getOpenOrdersInput) {
   const { userId, symbol, status } = payload
 
-  const orders = [...ORDERS.values()].filter((order) => {
-    if (order.userId !== userId) return false
-    if (order.symbol !== symbol) return false
-    if (order.status !== "open" && order.status !== "partially_filled") return false
-    if (status && order.status !== status) return false
-    return true
-  })
+  const openOrderIds = USER_OPEN_ORDERS.get(userId) ?? new Set();
+  const orders = [];
+
+  for (const orderId of openOrderIds) {
+    const order = ORDERS.get(orderId);
+    if (!order) continue;
+    if (order.symbol !== symbol) continue;
+    if (order.status !== "open" && order.status !== "partially_filled") continue;
+    if (status && order.status !== status) continue;
+    orders.push(order);
+  }
 
   return { orders }
 }

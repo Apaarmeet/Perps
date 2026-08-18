@@ -1,4 +1,4 @@
-import { ORDERBOOK, ORDERS, type cancelOrderInput } from "../exchangeStore";
+import { ORDERBOOK, ORDERS, USER_OPEN_ORDERS, type cancelOrderInput } from "../exchangeStore";
 import { reconcileUserMargin } from "../helper/margin";
 
 export function handleCancelOrder(payload : cancelOrderInput){
@@ -27,7 +27,11 @@ export function handleCancelOrder(payload : cancelOrderInput){
     }
 
     order.status = "cancelled"
-    reconcileUserMargin(userId)
+    ORDERS.set(orderId, order)
+
+    USER_OPEN_ORDERS.get(order.userId)?.delete(orderId);
+
+    reconcileUserMargin(order.userId)
 
     return order
 }

@@ -1,4 +1,4 @@
-import { BALANCES, ORDERS, POSITIONS } from "../exchangeStore";
+import { BALANCES, ORDERS, POSITIONS, USER_OPEN_ORDERS } from "../exchangeStore";
 
 export function reconcileUserMargin(userId: string) {
   const usd = BALANCES.get(userId)?.USD;
@@ -11,12 +11,10 @@ export function reconcileUserMargin(userId: string) {
     requiredMargin += position.margin;
   }
 
-  for (const order of ORDERS.values()) {
-    if (
-      order.userId === userId &&
-      order.type === "limit" &&
-      (order.status === "open" || order.status === "partially_filled")
-    ) {
+  const userOpenOrderIds = USER_OPEN_ORDERS.get(userId) ?? new Set();
+  for (const orderId of userOpenOrderIds) {
+    const order = ORDERS.get(orderId);
+    if (order && order.type === "limit" && (order.status === "open" || order.status === "partially_filled")) {
       requiredMargin += ((order.qty - order.filledQty) * (order.price ?? 0)) / order.leverage;
     }
   }

@@ -1,4 +1,4 @@
-import { ORDERS, type getOrderInput } from "../exchangeStore";
+import { ORDERS, USER_ORDERS, type getOrderInput } from "../exchangeStore";
 
 export function handleGetOrder(payload: getOrderInput) {
     const { userId, orderId, symbol } = payload
@@ -11,12 +11,15 @@ export function handleGetOrder(payload: getOrderInput) {
         return { order: undefined }
     }
 
-    const orders = [...ORDERS.values()].filter((order) => {
-        if (order.userId !== userId) return false
-        if (symbol && order.symbol !== symbol) return false
+    const userOrderIds = USER_ORDERS.get(userId) ?? new Set();
+    const orders = [];
 
-        return true
-    })
+    for (const id of userOrderIds) {
+        const order = ORDERS.get(id);
+        if (!order) continue;
+        if (symbol && order.symbol !== symbol) continue;
+        orders.push(order);
+    }
 
     return { orders }
 }

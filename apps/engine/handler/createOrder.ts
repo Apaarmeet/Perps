@@ -1,4 +1,4 @@
-import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
+import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, USER_OPEN_ORDERS, USER_ORDERS, USER_FILLS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
 import { reconcileUserMargin } from "../helper/margin";
 import { applyFillToPosition } from "../helper/updatePosition";
 
@@ -86,17 +86,28 @@ export function handleCreateOrder(payload: createOrderInput) {
                 createdAt,
             };
 
+            FILLS.push(fill);
+            fills.push(fill);
+            
+            if (!USER_FILLS.has(userId)) USER_FILLS.set(userId, []);
+            USER_FILLS.get(userId)!.unshift(fill);
+
+            if (!USER_FILLS.has(restingOrder.userId)) USER_FILLS.set(restingOrder.userId, []);
+            USER_FILLS.get(restingOrder.userId)!.unshift(fill);
+
             restingOrder.filledQty += fillQty;
             filledQty += fillQty;
             remainingQty -= fillQty;
-            FILLS.push(fill);
-            fills.push(fill);
 
-            const makerOrder = ORDERS.get(restingOrder.orderId);
-            if (makerOrder) {
-                makerOrder.filledQty += fillQty;
-                makerOrder.fills.push(fill);
-                makerOrder.status = makerOrder.filledQty === makerOrder.qty ? "filled" : "partially_filled";
+            const makerOrderRecord = ORDERS.get(restingOrder.orderId);
+            if (makerOrderRecord) {
+                makerOrderRecord.filledQty += fillQty;
+                makerOrderRecord.fills.push(fill);
+                makerOrderRecord.status = makerOrderRecord.filledQty === makerOrderRecord.qty ? "filled" : "partially_filled";
+                ORDERS.set(restingOrder.orderId, makerOrderRecord);
+                if (makerOrderRecord.status === "filled") {
+                    USER_OPEN_ORDERS.get(makerOrderRecord.userId)?.delete(makerOrderRecord.orderid);
+                }
             }
 
             const makerSide = restingOrder.side;
@@ -146,7 +157,21 @@ export function handleCreateOrder(payload: createOrderInput) {
         createdAt,
     });
 
+    let allUserOrders = USER_ORDERS.get(userId);
+    if (!allUserOrders) {
+        allUserOrders = new Set();
+        USER_ORDERS.set(userId, allUserOrders);
+    }
+    allUserOrders.add(orderId);
+
     if (type === "limit" && remainingQty > 0) {
+        let userOrders = USER_OPEN_ORDERS.get(userId);
+        if (!userOrders) {
+            userOrders = new Set();
+            USER_OPEN_ORDERS.set(userId, userOrders);
+        }
+        userOrders.add(orderId);
+
         const restingOrder: RestingOrder = {
             orderId,
             userId,

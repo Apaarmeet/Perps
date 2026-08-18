@@ -108,9 +108,9 @@ export async function consumeEngineRequests(){
                         const symbol = (result as any)?.order?.symbol as string;
                         if (fills?.length && symbol) {
                             const now = Date.now();
-                            const lastFill = FILLS.findLast(f => f.symbol === symbol);
+                            const lastFill = fills[fills.length - 1];
                             if (lastFill) {
-                                const perpPrice = lastFill.price;
+                                const perpPrice = lastFill.price ?? lastFill.Price;
                                 const indexPrice = INDEX_PRICES.get(symbol) ?? 0;
 
                                 const { closed, current } = recordTradePrice(symbol, perpPrice, now);
