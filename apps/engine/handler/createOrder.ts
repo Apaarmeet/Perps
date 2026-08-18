@@ -1,4 +1,4 @@
-import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, USER_OPEN_ORDERS, USER_ORDERS, USER_FILLS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
+import { BALANCES, FILLS, ORDERBOOK, ORDERS, POSITIONS, USER_OPEN_ORDERS, type Fill, type RestingOrder, type createOrderInput,} from "../exchangeStore";
 import { reconcileUserMargin } from "../helper/margin";
 import { applyFillToPosition } from "../helper/updatePosition";
 
@@ -88,12 +88,6 @@ export function handleCreateOrder(payload: createOrderInput) {
 
             FILLS.push(fill);
             fills.push(fill);
-            
-            if (!USER_FILLS.has(userId)) USER_FILLS.set(userId, []);
-            USER_FILLS.get(userId)!.unshift(fill);
-
-            if (!USER_FILLS.has(restingOrder.userId)) USER_FILLS.set(restingOrder.userId, []);
-            USER_FILLS.get(restingOrder.userId)!.unshift(fill);
 
             restingOrder.filledQty += fillQty;
             filledQty += fillQty;
@@ -156,13 +150,6 @@ export function handleCreateOrder(payload: createOrderInput) {
         fills,
         createdAt,
     });
-
-    let allUserOrders = USER_ORDERS.get(userId);
-    if (!allUserOrders) {
-        allUserOrders = new Set();
-        USER_ORDERS.set(userId, allUserOrders);
-    }
-    allUserOrders.add(orderId);
 
     if (type === "limit" && remainingQty > 0) {
         let userOrders = USER_OPEN_ORDERS.get(userId);
