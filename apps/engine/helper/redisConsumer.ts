@@ -78,18 +78,20 @@ export async function consumeEngineRequests(){
                     })
 
 
-                    await writeclient.xAdd(responseQueue as string, "*", {
+                    const pipeline = writeclient.multi();
+
+                    pipeline.xAdd(responseQueue as string, "*", {
                         correlationId: correlationId as string,
                         ok: "true",
                         data: JSON.stringify(result)
                     });
-                     await writeclient.xAdd("engine:db-writes", "*", {
+                    pipeline.xAdd("engine:db-writes", "*", {
                             correlationId,
                             commandType: type,
                             ok:"true",
                             data: JSON.stringify(result),
                     });
-                    await writeclient.xAdd("engine-dataStream", "*", {
+                    pipeline.xAdd("engine-dataStream", "*", {
                             commandType: type,
                             data: JSON.stringify(result),
                     });
@@ -115,19 +117,19 @@ export async function consumeEngineRequests(){
 
                                 const { closed, current } = recordTradePrice(symbol, perpPrice, now);
                                 for (const { key, candle } of closed) {
-                                    writeclient.xAdd("engine-dataStream", "*", {
+                                    pipeline.xAdd("engine-dataStream", "*", {
                                         commandType: "candle",
                                         data: JSON.stringify({ key, candle }),
                                     });
                                 }
                                 for (const { key, candle } of current) {
-                                    writeclient.xAdd("engine-dataStream", "*", {
+                                    pipeline.xAdd("engine-dataStream", "*", {
                                         commandType: "candle-update",
                                         data: JSON.stringify({ key, candle }),
                                     });
                                 }
 
-                                writeclient.xAdd("engine-dataStream", "*", {
+                                pipeline.xAdd("engine-dataStream", "*", {
                                     commandType: "price-update",
                                     data: JSON.stringify({
                                         symbol,
@@ -138,6 +140,8 @@ export async function consumeEngineRequests(){
                             }
                         }
                     }
+
+                    await pipeline.exec();
                 } catch (err) {
                     await writeclient.xAdd(responseQueue as string , "*", {
                         correlationId: correlationId as string,
